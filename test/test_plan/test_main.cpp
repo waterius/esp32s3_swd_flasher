@@ -157,6 +157,11 @@ static void test_other_chip_id_does_not_match(void) {
   TEST_ASSERT_TRUE(plan::id_matches(chips::py32f002b, 0x20200061));
 }
 
+// spec: "swd-flash/На плате тот чип, что выбран/Ревизия кристалла не из RM"
+static void test_serial_chip_revision_matches(void) {
+  TEST_ASSERT_TRUE(plan::id_matches(chips::py32f002b, 0x20220064));
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_untouched_units_are_left_alone);
@@ -169,5 +174,6 @@ int main(void) {
   RUN_TEST(test_failed_image_refuses);
   RUN_TEST(test_empty_image_refuses);
   RUN_TEST(test_other_chip_id_does_not_match);
+  RUN_TEST(test_serial_chip_revision_matches);
   return UNITY_END();
 }
