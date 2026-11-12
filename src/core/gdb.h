@@ -12,6 +12,10 @@ namespace gdb {
 
 using LineFn = void (*)(void *ctx, const char *line);
 
+// Что команда оснастки сделала с чипом: для ответа на vKill удачное erase — как удачная запись
+// (спека gdb-server, «Провал заливки виден PlatformIO»).
+enum class Outcome : uint8_t { None, WriteOk, WriteFailed };
+
 struct Target {
   void *ctx;
   const chip::Desc *(*chip)(void *ctx);  // выбранный чип или nullptr
@@ -26,7 +30,7 @@ struct Target {
   bool (*write_reg)(void *ctx, uint8_t index, uint32_t value);
   bool (*flash)(void *ctx, const image::Image &img);  // записать образ по design §8
   // Команда оснастки, та же, что строкой в текстовом режиме (design §11).
-  void (*command)(void *ctx, const char *line, LineFn emit, void *emit_ctx);
+  Outcome (*command)(void *ctx, const char *line, LineFn emit, void *emit_ctx);
   // Строка оснастки «# …» в вывод порта (он выйдет, когда порт освободится).
   void (*print)(void *ctx, const char *line);
 };

@@ -32,6 +32,9 @@ bool read_mem(uint32_t addr, uint8_t *buf, uint32_t len);
 bool read_reg(uint8_t index, uint32_t *value);
 bool write_reg(uint8_t index, uint32_t value);
 bool flash(const image::Image &img);
+// Полное стирание основной flash в идущем сеансе (команда erase): строки шагов и итог —
+// в вывод оснастки и, если emit не nullptr, ещё и туда.
+bool erase_main(gdb::LineFn emit, void *emit_ctx);
 
 // Импульс NRST 10 мс без SWD (команда reset).
 void reset_board();

@@ -91,6 +91,45 @@ unsigned long ms0(uint32_t us) { return (us + 500) / 1000; }
 
 }  // namespace
 
+void erase_main(Report &out, const chip::Desc &desc, const Ops &ops) {
+  memset(&out, 0, sizeof out);
+  out.result = Result::Ok;
+  const chip::Region *main = chip::main_region(desc);
+  if (!main) {
+    stop(out, Result::NoMainRegion, 0, nullptr, nullptr);
+    return;
+  }
+  const char *err = nullptr;
+  if (!ops.unlock(ops.ctx, &err)) {
+    stop(out, Result::UnlockFailed, 0, nullptr, err);
+    return;
+  }
+  uint32_t busy = 0;
+  bool ok = ops.erase_main(ops.ctx, main->start, &busy, &err);
+  ops.lock(ops.ctx);  // при любом исходе
+  if (!ok) {
+    stop(out, Result::MainEraseFailed, main->start, main, err);
+    return;
+  }
+  out.main_erase_us = busy;
+  out.out_of_datasheet = busy > desc.erase_max_us;
+  ops.reload_watchdog(ops.ctx);
+  uint32_t t0 = ops.now_us(ops.ctx);
+  for (uint32_t off = 0; off < main->size; off += MAX_UNIT) {
+    uint32_t len = main->size - off < MAX_UNIT ? main->size - off : MAX_UNIT;
+    if (!ops.read(ops.ctx, main->start + off, readback, len)) {
+      stop(out, Result::ReadFailed, main->start + off, main, nullptr);
+      return;
+    }
+    for (uint32_t k = 0; k < len; k++)
+      if (readback[k] != 0xFF) {
+        stop(out, Result::NotErased, main->start + off + k, main, nullptr);
+        return;
+      }
+  }
+  out.verify_us = ops.now_us(ops.ctx) - t0;
+}
+
 void run(Report &out, const image::Image &img, const plan::Plan &pl, const chip::Desc &desc,
          const Ops &ops) {
   memset(&out, 0, sizeof out);
@@ -135,6 +174,14 @@ void failure_text(const Report &r, char *buf, size_t size) {
     case Result::Mismatch:
       snprintf(buf, size, "сверка: расхождение по 0x%08lX", (unsigned long)r.addr);
       break;
+    case Result::MainEraseFailed:
+      // WRPERR при полном стирании — защита записи или Load flash (спека swd-flash)
+      snprintf(buf, size, "полное стирание невозможно: %s",
+               r.detail && strcmp(r.detail, "WRPERR") == 0 ? "защита записи" : (r.detail ? r.detail : ""));
+      break;
+    case Result::NoMainRegion:
+      snprintf(buf, size, "%s", "полное стирание: у чипа нет основной flash");
+      break;
   }
 }
 
@@ -169,6 +216,24 @@ void describe(const Report &r, LineFn emit, void *ctx) {
   if (r.out_of_datasheet) emit(ctx, "# время записи вне даташита");
   if (r.result == Result::Ok) {
     snprintf(line, sizeof line, "# сверка: %lu мс", ms0(r.verify_us));
+  } else {
+    char reason[120];
+    failure_text(r, reason, sizeof reason);
+    snprintf(line, sizeof line, "# %s", reason);
+  }
+  emit(ctx, line);
+}
+
+void describe_erase(const Report &r, LineFn emit, void *ctx) {
+  char line[160], a[16];
+  if (r.main_erase_us) {
+    ms1(a, sizeof a, r.main_erase_us);
+    snprintf(line, sizeof line, "# полное стирание: %s мс", a);
+    emit(ctx, line);
+  }
+  if (r.out_of_datasheet) emit(ctx, "# время стирания вне даташита");
+  if (r.result == Result::Ok) {
+    snprintf(line, sizeof line, "# проверка 0xFF: %lu мс", ms0(r.verify_us));
   } else {
     char reason[120];
     failure_text(r, reason, sizeof reason);

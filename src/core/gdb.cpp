@@ -154,7 +154,9 @@ bool Server::on_packet(const uint8_t *d, size_t n) {
     if (hexlen / 2 >= sizeof cmd || !rsp::from_hex(s + 6, hexlen, reinterpret_cast<uint8_t *>(cmd)))
       return reply("E01"), false;
     cmd[hexlen / 2] = 0;
-    t_.command(t_.ctx, cmd, emit_console, this);
+    Outcome o = t_.command(t_.ctx, cmd, emit_console, this);
+    if (o == Outcome::WriteOk) write_ok_ = true;
+    if (o == Outcome::WriteFailed) write_failed_ = true;
     reply("OK");
   } else if (starts(d, n, "vAttach;")) {
     if (!session) session = t_.start_session(t_.ctx, nullptr, nullptr);

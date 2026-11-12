@@ -26,6 +26,8 @@ struct FakeChip {
   uint32_t clock_us;
   int erases_after_wrperr;  // сколько стираний пришло после отказа
   bool wrperr_seen;
+  int main_erases;
+  uint32_t main_erase_leaves;  // полное стирание оставляет этот байт 0x00 (0 — нет)
 };
 static FakeChip fc;
 
@@ -71,13 +73,29 @@ static bool f_write(void *, uint32_t addr, const uint8_t *data, uint32_t len, ui
   return true;
 }
 static void f_reload(void *) { fc.reloads++; }
+// Полное стирание: только основная flash; WRPERR, если хоть один сектор защищён.
+static bool f_erase_main(void *, uint32_t addr, uint32_t *busy, const char **err) {
+  fc.main_erases++;
+  if (addr != 0x08000000) {
+    *err = "не то начало";
+    return false;
+  }
+  if (fc.wrperr_from) {
+    *err = "WRPERR";
+    return false;
+  }
+  memset(fc.flash, 0xFF, sizeof fc.flash);
+  if (fc.main_erase_leaves) fc.flash[fc.main_erase_leaves - 0x08000000] = 0x00;
+  *busy = fc.erase_busy_us;
+  return true;
+}
 static bool f_read(void *, uint32_t addr, uint8_t *buf, uint32_t len) {
   memcpy(buf, mem(addr), len);
   return true;
 }
 static uint32_t f_now(void *) { return fc.clock_us += 100; }
 
-static const writer::Ops OPS = {nullptr, f_unlock, f_lock, f_erase, f_write, f_reload, f_read, f_now};
+static const writer::Ops OPS = {nullptr, f_unlock, f_lock, f_erase, f_write, f_reload, f_read, f_now, f_erase_main};
 
 static bool plan_read(void *, uint32_t addr, uint8_t *buf, uint32_t len) { return f_read(nullptr, addr, buf, len); }
 
@@ -253,6 +271,73 @@ static void test_slow_erase_warns(void) {
   TEST_ASSERT_NOT_NULL(strstr(describe(), "# время записи вне даташита|"));
 }
 
+// ---------------------------------------------------------------- полное стирание
+
+static const char *describe_erase(void) {
+  lines[0] = 0;
+  writer::describe_erase(rep, collect, nullptr);
+  return lines;
+}
+
+// spec: "swd-flash/Полное стирание по команде erase/Стирание перед записью"
+static void test_erase_main_then_image(void) {
+  memset(fc.flash + 0x3200, 0x5C, 128);  // страница 100
+  memset(fc.otp, 0x3C, sizeof fc.otp);   // данные в USER OTP
+  writer::erase_main(rep, chips::py32f002b, OPS);
+  TEST_ASSERT_EQUAL(writer::Result::Ok, rep.result);
+  TEST_ASSERT_FALSE(fc.unlocked);  // заперто после стирания
+  put(0x08000000, 0x01, 128 * 10);  // затем образ на страницы 0–9 в том же сеансе
+  run();
+  TEST_ASSERT_EQUAL(writer::Result::Ok, rep.result);
+  for (int i = 0; i < 128; i++) TEST_ASSERT_EQUAL_HEX8(0xFF, fc.flash[0x3200 + i]);
+  for (int i = 0; i < 128; i++) TEST_ASSERT_EQUAL_HEX8(0x3C, fc.otp[i]);
+  TEST_ASSERT_EQUAL_HEX8(0x01, fc.flash[0]);
+  TEST_ASSERT_EQUAL(1, fc.main_erases);
+}
+
+// spec: "swd-flash/Полное стирание по команде erase/Стирание при защите записи"
+static void test_erase_main_refused_by_write_protection(void) {
+  fc.wrperr_from = 0x08001000;
+  writer::erase_main(rep, chips::py32f002b, OPS);
+  TEST_ASSERT_EQUAL(writer::Result::MainEraseFailed, rep.result);
+  TEST_ASSERT_EQUAL(1, fc.locks);  // заперто и после отказа
+  TEST_ASSERT_EQUAL_HEX8(0x00, fc.flash[0]);  // ничего не стёрто
+  char text[96];
+  writer::failure_text(rep, text, sizeof text);
+  TEST_ASSERT_EQUAL_STRING("полное стирание невозможно: защита записи", text);
+  TEST_ASSERT_EQUAL_STRING("# полное стирание невозможно: защита записи|", describe_erase());
+}
+
+static void test_erase_main_checks_every_byte(void) {
+  fc.main_erase_leaves = 0x08005FFF;  // последний байт основной flash
+  writer::erase_main(rep, chips::py32f002b, OPS);
+  TEST_ASSERT_EQUAL(writer::Result::NotErased, rep.result);
+  TEST_ASSERT_EQUAL_HEX32(0x08005FFF, rep.addr);
+  TEST_ASSERT_EQUAL_STRING("# полное стирание: 3,5 мс|# flash не стёрлась: 0x08005FFF|", describe_erase());
+}
+
+static void test_erase_main_lines(void) {
+  writer::erase_main(rep, chips::py32f002b, OPS);
+  const char *out = describe_erase();
+  TEST_ASSERT_NOT_NULL(strstr(out, "# полное стирание: 3,5 мс|# проверка 0xFF: "));
+  TEST_ASSERT_NULL(strstr(out, "вне даташита"));
+  TEST_ASSERT_EQUAL(1, fc.reloads);
+}
+
+static void test_erase_main_slow_warns(void) {
+  fc.erase_busy_us = 6200;
+  writer::erase_main(rep, chips::py32f002b, OPS);
+  TEST_ASSERT_EQUAL(writer::Result::Ok, rep.result);
+  TEST_ASSERT_NOT_NULL(strstr(describe_erase(), "# время стирания вне даташита|"));
+}
+
+static void test_erase_main_unlock_failure(void) {
+  fc.unlocked = true;  // повторные ключи — отказ
+  writer::erase_main(rep, chips::py32f002b, OPS);
+  TEST_ASSERT_EQUAL(writer::Result::UnlockFailed, rep.result);
+  TEST_ASSERT_EQUAL(0, fc.main_erases);
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_written_pages_hold_image);
@@ -267,5 +352,11 @@ int main(void) {
   RUN_TEST(test_watchdog_reloaded_after_each_page);
   RUN_TEST(test_lines_show_counts_and_times);
   RUN_TEST(test_slow_erase_warns);
+  RUN_TEST(test_erase_main_then_image);
+  RUN_TEST(test_erase_main_refused_by_write_protection);
+  RUN_TEST(test_erase_main_checks_every_byte);
+  RUN_TEST(test_erase_main_lines);
+  RUN_TEST(test_erase_main_slow_warns);
+  RUN_TEST(test_erase_main_unlock_failure);
   return UNITY_END();
 }

@@ -66,6 +66,16 @@ void cmd_info(const Host &h, gdb::LineFn emit, void *ectx) {
   h.end_session(h.ctx);  // короткий сеанс: плата перезапускается
 }
 
+// В сеансе gdb — в нём; вне сеанса — свой короткий сеанс, плата после него перезапускается.
+gdb::Outcome cmd_erase(const Host &h, gdb::LineFn emit, void *ectx) {
+  if (!h.chip(h.ctx)) return emit(ectx, NO_CHIP), gdb::Outcome::None;
+  bool own = !h.session_active(h.ctx);
+  if (own && !h.start_session(h.ctx, emit, ectx)) return gdb::Outcome::WriteFailed;
+  bool ok = h.erase(h.ctx, emit, ectx);
+  if (own) h.end_session(h.ctx);
+  return ok ? gdb::Outcome::WriteOk : gdb::Outcome::WriteFailed;
+}
+
 void cmd_scan(const Host &h, gdb::LineFn emit, void *ectx) {
   const chip::Desc *d = h.chip(h.ctx);
   if (!d) return emit(ectx, NO_CHIP);
@@ -98,30 +108,37 @@ void help(gdb::LineFn emit, void *ectx) {
   emit(ectx, "#   help             эта подсказка");
   emit(ectx, "#   chip [имя]       выбрать чип; без имени — выбранный и поддержанные");
   emit(ectx, "#   info             подключиться и показать чип; перезапускает плату");
+  emit(ectx, "#   erase            стереть всю основную flash (OTP не трогает); перезапускает плату");
   emit(ectx, "#   reset            перезапустить плату");
   emit(ectx, "#   baud [скорость]  скорость лога платы, 1200–2000000");
   emit(ectx, "# в gdb — monitor <команда>, а также monitor swdp_scan");
 }
 
-void run(const Host &h, const char *line, gdb::LineFn emit, void *ectx, Source source) {
+gdb::Outcome run(const Host &h, const char *line, gdb::LineFn emit, void *ectx, Source source) {
   char word[16];
   const char *arg;
   split(line, word, sizeof word, &arg);
-  if (!word[0]) return;  // пустая строка
-  if (strcmp(word, "help") == 0) return help(emit, ectx);
-  if (strcmp(word, "chip") == 0) return cmd_chip(h, arg, emit, ectx);
-  if (strcmp(word, "info") == 0) return cmd_info(h, emit, ectx);
-  if (strcmp(word, "swdp_scan") == 0) {
-    if (source != Source::Gdb) return emit(ectx, "# swdp_scan — только через monitor в gdb");
-    return cmd_scan(h, emit, ectx);
+  if (!word[0]) return gdb::Outcome::None;  // пустая строка
+  if (strcmp(word, "erase") == 0) return cmd_erase(h, emit, ectx);
+  if (strcmp(word, "help") == 0) help(emit, ectx);
+  else if (strcmp(word, "chip") == 0) cmd_chip(h, arg, emit, ectx);
+  else if (strcmp(word, "info") == 0) cmd_info(h, emit, ectx);
+  else if (strcmp(word, "swdp_scan") == 0) {
+    if (source != Source::Gdb) emit(ectx, "# swdp_scan — только через monitor в gdb");
+    else cmd_scan(h, emit, ectx);
+  } else if (strcmp(word, "reset") == 0) {
+    if (h.session_active(h.ctx)) {
+      emit(ectx, BUSY);
+    } else {
+      h.reset_board(h.ctx);
+      emit(ectx, "# сброс платы");
+    }
+  } else if (strcmp(word, "baud") == 0) {
+    cmd_baud(h, arg, emit, ectx);
+  } else {
+    help(emit, ectx);
   }
-  if (strcmp(word, "reset") == 0) {
-    if (h.session_active(h.ctx)) return emit(ectx, BUSY);
-    h.reset_board(h.ctx);
-    return emit(ectx, "# сброс платы");
-  }
-  if (strcmp(word, "baud") == 0) return cmd_baud(h, arg, emit, ectx);
-  help(emit, ectx);
+  return gdb::Outcome::None;
 }
 
 }  // namespace commands

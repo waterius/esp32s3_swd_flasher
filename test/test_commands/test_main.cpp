@@ -14,8 +14,9 @@ struct FakeHost {
   const chip::Desc *chip;
   int set_chip_calls;
   bool session;
-  int starts, ends, resets, infos;
+  int starts, ends, resets, infos, erases;
   bool start_fails;
+  bool erase_fails;
   uint32_t baud;
 };
 static FakeHost fh;
@@ -43,21 +44,27 @@ static void h_info(void *, gdb::LineFn emit, void *ectx) {
   fh.infos++;
   emit(ectx, "# UID: 0x00112233");
 }
+static bool h_erase(void *, gdb::LineFn emit, void *ectx) {
+  fh.erases++;
+  emit(ectx, fh.erase_fails ? "# итог: ошибка, полное стирание невозможно: защита записи" : "# итог: ок, 300 мс");
+  return !fh.erase_fails;
+}
 static void h_reset(void *) { fh.resets++; }
 static uint32_t h_baud(void *) { return fh.baud; }
 static void h_set_baud(void *, uint32_t b) { fh.baud = b; }
 
-static const commands::Host HOST = {nullptr, h_chip,  h_set_chip, h_active,  h_start, h_end,
-                                    h_info,  h_reset, h_baud,     h_set_baud};
+static const commands::Host HOST = {nullptr, h_chip,  h_set_chip, h_active, h_start,   h_end,
+                                    h_info,  h_erase, h_reset,    h_baud,   h_set_baud};
 
 static char out[2048];
+static gdb::Outcome outcome;
 static void collect(void *, const char *line) {
   strncat(out, line, sizeof out - strlen(out) - 2);
   strcat(out, "|");
 }
 static const char *run_from(const char *line, commands::Source src) {
   out[0] = 0;
-  commands::run(HOST, line, collect, nullptr, src);
+  outcome = commands::run(HOST, line, collect, nullptr, src);
   return out;
 }
 static const char *run(const char *line) { return run_from(line, commands::Source::Text); }
@@ -181,6 +188,50 @@ static void test_unknown_command_prints_help(void) {
 
 static void test_empty_line_prints_nothing(void) { TEST_ASSERT_EQUAL_STRING("", run("")); }
 
+// ---------------------------------------------------------------- erase
+
+static void test_erase_without_chip_does_not_connect(void) {
+  TEST_ASSERT_EQUAL_STRING("# чип не выбран: chip <имя>|", run("erase"));
+  TEST_ASSERT_EQUAL(0, fh.starts);
+  TEST_ASSERT_EQUAL(gdb::Outcome::None, outcome);
+}
+
+static void test_erase_outside_session_is_a_short_session(void) {
+  fh.chip = &chips::py32f002b;
+  TEST_ASSERT_EQUAL_STRING("# SWD: под сбросом|# итог: ок, 300 мс|", run("erase"));
+  TEST_ASSERT_EQUAL(1, fh.erases);
+  TEST_ASSERT_EQUAL(1, fh.ends);  // плата перезапущена
+  TEST_ASSERT_EQUAL(gdb::Outcome::WriteOk, outcome);
+}
+
+static void test_erase_in_session_keeps_session(void) {
+  fh.chip = &chips::py32f002b;
+  fh.session = true;
+  gdb_run("erase");
+  TEST_ASSERT_EQUAL(0, fh.starts);
+  TEST_ASSERT_EQUAL(0, fh.ends);
+  TEST_ASSERT_TRUE(fh.session);
+  TEST_ASSERT_EQUAL(gdb::Outcome::WriteOk, outcome);
+}
+
+static void test_erase_refused_by_chip_is_a_failed_write(void) {
+  fh.chip = &chips::py32f002b;
+  fh.erase_fails = true;
+  TEST_ASSERT_NOT_NULL(strstr(run("erase"), "# итог: ошибка, полное стирание невозможно: защита записи|"));
+  TEST_ASSERT_EQUAL(gdb::Outcome::WriteFailed, outcome);
+  TEST_ASSERT_EQUAL(1, fh.ends);
+}
+
+static void test_erase_when_chip_does_not_answer(void) {
+  fh.chip = &chips::py32f002b;
+  fh.start_fails = true;
+  TEST_ASSERT_EQUAL_STRING("# чип не отвечает|", run("erase"));
+  TEST_ASSERT_EQUAL(0, fh.erases);
+  TEST_ASSERT_EQUAL(gdb::Outcome::WriteFailed, outcome);
+}
+
+static void test_help_lists_erase(void) { TEST_ASSERT_NOT_NULL(strstr(run("help"), "#   erase ")); }
+
 // spec: "gdb-server/Команды строкой и через monitor/Команда из gdb"
 static image::Image img;
 static char sent[4096];
@@ -199,8 +250,8 @@ static bool t_read(void *, uint32_t, uint8_t *, uint32_t) { return false; }
 static bool t_rreg(void *, uint8_t, uint32_t *) { return false; }
 static bool t_wreg(void *, uint8_t, uint32_t) { return false; }
 static bool t_flash(void *, const image::Image &) { return false; }
-static void t_command(void *, const char *line, gdb::LineFn emit, void *ectx) {
-  commands::run(HOST, line, emit, ectx, commands::Source::Gdb);
+static gdb::Outcome t_command(void *, const char *line, gdb::LineFn emit, void *ectx) {
+  return commands::run(HOST, line, emit, ectx, commands::Source::Gdb);
 }
 static void t_print(void *, const char *) {}
 static const gdb::Target TARGET = {nullptr, t_chip,  t_active, t_start,  t_end,  t_read,
@@ -255,6 +306,12 @@ int main(void) {
   RUN_TEST(test_baud_out_of_range_is_refused);
   RUN_TEST(test_unknown_command_prints_help);
   RUN_TEST(test_empty_line_prints_nothing);
+  RUN_TEST(test_erase_without_chip_does_not_connect);
+  RUN_TEST(test_erase_outside_session_is_a_short_session);
+  RUN_TEST(test_erase_in_session_keeps_session);
+  RUN_TEST(test_erase_refused_by_chip_is_a_failed_write);
+  RUN_TEST(test_erase_when_chip_does_not_answer);
+  RUN_TEST(test_help_lists_erase);
   RUN_TEST(test_monitor_prints_the_same_lines);
   return UNITY_END();
 }

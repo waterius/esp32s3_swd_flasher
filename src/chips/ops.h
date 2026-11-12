@@ -18,6 +18,9 @@ struct Ops {
   bool (*erase_unit)(uint32_t addr, uint32_t *busy_us, const char **err);
   bool (*write_unit)(uint32_t addr, const uint8_t *data, uint32_t len, uint32_t *busy_us, const char **err);
   void (*reload_watchdog)();
+  // Стереть всю основную flash одной операцией; addr — начало основной области (запуск записью
+  // слова). Отказ чипа — err «WRPERR», как у erase_unit.
+  bool (*erase_main)(uint32_t addr, uint32_t *busy_us, const char **err);
   // Строки для `info`: идентификатор, UID, частота, тайминги.
   void (*info)(gdb::LineFn emit, void *emit_ctx);
   // Частота и тайминги одной строкой без «# » — шаг записи: «HSI 24 МГц, тайминги заводские».
