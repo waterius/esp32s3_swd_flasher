@@ -20,7 +20,7 @@ struct Ops {
   bool (*write_unit)(void *ctx, uint32_t addr, const uint8_t *data, uint32_t len,
                      uint32_t *busy_us, const char **err);
   void (*reload_watchdog)(void *ctx);
-  bool (*read)(void *ctx, uint32_t addr, uint8_t *buf, uint32_t len);
+  bool (*read)(void *ctx, uint32_t addr, uint8_t *buf, uint32_t len);  // len до 4096 Б
   uint32_t (*now_us)(void *ctx);
   // Стереть всю основную область одной операцией (команда erase); addr — её начало.
   bool (*erase_main)(void *ctx, uint32_t addr, uint32_t *busy_us, const char **err);

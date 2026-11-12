@@ -90,6 +90,7 @@ static bool f_erase_main(void *, uint32_t addr, uint32_t *busy, const char **err
   return true;
 }
 static bool f_read(void *, uint32_t addr, uint8_t *buf, uint32_t len) {
+  if (len > 4096) return false;  // предел writer::Ops.read
   memcpy(buf, mem(addr), len);
   return true;
 }
@@ -331,6 +332,16 @@ static void test_erase_main_slow_warns(void) {
   TEST_ASSERT_NOT_NULL(strstr(describe_erase(), "# время стирания вне даташита|"));
 }
 
+// Предел полного стирания — свой у чипа, не предел страницы.
+static void test_erase_main_uses_its_own_limit(void) {
+  chip::Desc d = chips::py32f002b;
+  d.main_erase_max_us = 10000;
+  fc.erase_busy_us = 6200;  // больше предела страницы, меньше предела полного стирания
+  writer::erase_main(rep, d, OPS);
+  TEST_ASSERT_EQUAL(writer::Result::Ok, rep.result);
+  TEST_ASSERT_NULL(strstr(describe_erase(), "вне даташита"));
+}
+
 static void test_erase_main_unlock_failure(void) {
   fc.unlocked = true;  // повторные ключи — отказ
   writer::erase_main(rep, chips::py32f002b, OPS);
@@ -357,6 +368,7 @@ int main(void) {
   RUN_TEST(test_erase_main_checks_every_byte);
   RUN_TEST(test_erase_main_lines);
   RUN_TEST(test_erase_main_slow_warns);
+  RUN_TEST(test_erase_main_uses_its_own_limit);
   RUN_TEST(test_erase_main_unlock_failure);
   return UNITY_END();
 }

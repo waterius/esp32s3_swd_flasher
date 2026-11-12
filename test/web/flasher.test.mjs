@@ -201,6 +201,45 @@ test('USB выдернули посреди сеанса — ошибка, не 
   assert.equal(flasher.connected, false);
 });
 
+test('ответ chip не ушёл — порт закрыт, а не брошен открытым', async () => {
+  const fake = new FakeFlasher();
+  const write = fake.write.bind(fake);
+  fake.write = async () => {
+    throw new Error('порт сбоит');
+  };
+  const flasher = new Flasher(fake, { timeouts: FAST });
+  await assert.rejects(flasher.connect(), /порт сбоит/);
+  assert.equal(fake.isOpen, false);
+  assert.equal(flasher.connected, false);
+  fake.write = write;
+  await flasher.connect(); // повторное подключение тем же портом
+  assert.equal(flasher.connected, true);
+});
+
+test('пакет не записался — ошибка записи, ожидание снято, сеанс закрыт D', async () => {
+  const { fake, flasher } = await connected();
+  const write = fake.write.bind(fake);
+  let calls = 0;
+  fake.write = async (bytes) => {
+    if (++calls === 2) throw new Error('порт сбоит'); // первый — «+», второй — qSupported
+    return write(bytes);
+  };
+  await assert.rejects(flasher.flash([FW]), /порт сбоит/);
+  assert.equal(flasher.waiter, null);
+  assert.equal(kinds(fake).at(-1), 'D');
+  await new Promise((r) => setTimeout(r, FAST.packet + 50)); // срок старого ожидания прошёл без следа
+  assert.equal(flasher.connected, true);
+  assert.equal((await flasher.read(0x1fff0280, 16)).ok, true);
+});
+
+test('пустая карта памяти — ошибка, сеанс закрыт D и переводом строки', async () => {
+  const { fake, flasher } = await connected({ chip: null });
+  await assert.rejects(flasher.flash([FW]), /пустую карту памяти/);
+  assert.equal(kinds(fake).at(-1), 'D');
+  assert.equal(fake.mode, 'text');
+  assert.equal(flasher.busy, false);
+});
+
 // ---------------------------------------------------------------- чтение и карта
 
 // spec: "web-flash/Чтение памяти/Чтение USER OTP"

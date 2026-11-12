@@ -134,10 +134,10 @@ export function buildImage(files, map) {
 
 /**
  * Куски для vFlashWrite: заголовок «vFlashWrite:addr:» плюс экранированные данные не длиннее limit.
- * escapedLen(bytes) — длина после экранирования (rsp.escapedLength).
+ * needsEscape(b) — байт экранируется и займёт 2 (rsp.needsEscape).
  * Возвращает [{addr, bytes}].
  */
-export function writeChunks(runs, limit, escapedLen) {
+export function writeChunks(runs, limit, needsEscape) {
   const out = [];
   for (const run of runs) {
     let pos = 0;
@@ -147,7 +147,7 @@ export function writeChunks(runs, limit, escapedLen) {
       let room = limit - head;
       let end = pos;
       while (end < run.bytes.length) {
-        const cost = escapedLen(run.bytes.subarray(end, end + 1));
+        const cost = needsEscape(run.bytes[end]) ? 2 : 1;
         if (cost > room) break;
         room -= cost;
         end++;

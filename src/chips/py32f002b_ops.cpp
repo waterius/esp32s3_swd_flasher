@@ -176,7 +176,7 @@ bool erase_unit(uint32_t addr, uint32_t *busy_us, const char **err) {
 
 // Полное стирание основной flash: RM §4.2.3.4, EraseChip в FlashPrg.c — MER | EOPIE, запись
 // любого слова, BSY, EOP. USER OTP (информационная область) не стирается (RM §4.2.1). При
-// защите записи стирания нет, встаёт WRPERR. Время — как у страницы (DS табл. 5-16).
+// защите записи стирания нет, встаёт WRPERR. Время — как у страницы (DS табл. 5-15).
 bool erase_main(uint32_t addr, uint32_t *busy_us, const char **err) {
   if (!start_mode(CR_MER, err)) return false;
   uint32_t t0 = micros();

@@ -2,7 +2,7 @@
 // gdb — тот же порядок, что у PlatformIO (design §5–§7). Web Serial и страницу не знает: порт
 // приходит протоколом «порт оснастки» (design §4). Об изделиях ничего не знает.
 
-import { frame, framePacket, fromHex, toHex, escapedLength, Parser } from './rsp.js';
+import { frame, framePacket, fromHex, toHex, needsEscape, Parser } from './rsp.js';
 import { parseFile, buildImage, parseMemoryMap, writeChunks, hex32, ImageError } from './image.js';
 
 /**
@@ -18,7 +18,7 @@ import { parseFile, buildImage, parseMemoryMap, writeChunks, hex32, ImageError }
 /** Сроки ответов оснастки, мс (design §5). */
 export const TIMEOUTS = {
   packet: 2000, // обычный пакет
-  erase: 2000, // qRcmd erase
+  erase: 10000, // qRcmd erase: стирание и чтение всей основной flash по SWD
   done: 10000, // vFlashDone
   settle: 2000, // строки итога после возврата в текстовый режим
   quiet: 300, // тишина, после которой строк сеанса больше не ждём
@@ -101,7 +101,12 @@ export class Flasher {
     this.mode = 'text';
     this.partial = '';
     this._changed();
-    await this.command('chip');
+    try {
+      await this.command('chip');
+    } catch (e) {
+      await this.disconnect().catch(() => {}); // порт не остаётся открытым без хозяина
+      throw e;
+    }
   }
 
   async disconnect() {
@@ -204,19 +209,25 @@ export class Flasher {
 
   // ---------------------------------------------------------------- пакеты
 
+  // Отправить пакет и ждать ответ. Ожидание одно: ответ, срок или ошибка записи снимают его.
   async _send(payload, timeout = this.t.packet) {
     const bytes = typeof payload === 'string' ? frame(payload) : payload;
     const reply = new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
-        this.waiter = null;
+        if (this.waiter === waiter) this.waiter = null;
         reject(new Timeout());
       }, timeout);
-      this.waiter = {
+      const waiter = {
         resolve: (v) => (clearTimeout(timer), resolve(v)),
         reject: (e) => (clearTimeout(timer), reject(e)),
       };
+      this.waiter = waiter;
     });
-    await this.port.write(bytes);
+    try {
+      await this.port.write(bytes);
+    } catch (e) {
+      this._fail(e);
+    }
     return reply;
   }
 
@@ -291,7 +302,8 @@ export class Flasher {
     return { reply, lines };
   }
 
-  // Сеанс целиком: busy, ошибка срока — закрыть порт (оснастка увидит падение DTR и завершит сеанс).
+  // Сеанс целиком: busy; при любой ошибке — завершить сеанс оснастки. Вышел срок — закрыть порт:
+  // оснастка увидит падение DTR. Другая ошибка в режиме gdb — D и перевод строки, как обычно.
   async _session(body) {
     if (!this.connected) throw new Error('оснастка не подключена');
     if (this.busy) throw new Error('идёт сеанс');
@@ -300,10 +312,8 @@ export class Flasher {
     try {
       return await body();
     } catch (e) {
-      if (e instanceof Timeout) {
-        this.mode = 'text';
-        await this.disconnect().catch(() => {});
-      }
+      if (e instanceof Timeout) await this._drop();
+      else if (this.mode === 'gdb' && this.connected) await this._finish('D', 0).catch(() => this._drop());
       throw e;
     } finally {
       this.mode = 'text';
@@ -313,6 +323,11 @@ export class Flasher {
     }
   }
 
+  async _drop() {
+    this.mode = 'text';
+    await this.disconnect().catch(() => {});
+  }
+
   // ---------------------------------------------------------------- сеансы
 
   /** Карта памяти выбранного чипа — без подключения к плате. */
@@ -320,11 +335,9 @@ export class Flasher {
     return this._session(async () => {
       await this._hello();
       await this._send('!');
-      try {
-        return await this._memoryMap();
-      } finally {
-        if (this.connected) await this._finish('D', 0);
-      }
+      const map = await this._memoryMap();
+      await this._finish('D', 0);
+      return map;
     });
   }
 
@@ -358,7 +371,7 @@ export class Flasher {
         await this._finish('D', 0); // к плате оснастка не подключалась
         return { ok: false, reason: e.message, lines: [], touched: false };
       }
-      const chunks = writeChunks(img.runs, WRITE_LIMIT, escapedLength);
+      const chunks = writeChunks(img.runs, WRITE_LIMIT, needsEscape);
       const total = img.size;
       progress({ phase: 'connect', sent: 0, total });
       if (!(await this._attach())) {

@@ -31,10 +31,11 @@ bool stop(Report &r, Result result, uint32_t addr, const chip::Region *region, c
   return false;
 }
 
-bool all_erased(const uint8_t *p, uint32_t len) {
-  for (uint32_t i = 0; i < len; i++)
-    if (p[i] != 0xFF) return false;
-  return true;
+// Номер первого байта не 0xFF; len — все стёрты.
+uint32_t first_not_erased(const uint8_t *p, uint32_t len) {
+  uint32_t i = 0;
+  while (i < len && p[i] == 0xFF) i++;
+  return i;
 }
 
 // Пишет единицы плана; false — остановились, причина в r.
@@ -56,7 +57,7 @@ bool write_units(Report &r, const image::Image &img, const plan::Plan &pl, const
       if (u.len > MAX_UNIT || !ops.read(ops.ctx, u.addr, readback, u.len))
         return stop(r, Result::ReadFailed, u.addr, u.region, nullptr);
       // недостёртая единица плюс новые байты могут дать замок — не пишем (спека swd-flash)
-      if (!all_erased(readback, u.len)) return stop(r, Result::NotErased, u.addr, u.region, nullptr);
+      if (first_not_erased(readback, u.len) < u.len) return stop(r, Result::NotErased, u.addr, u.region, nullptr);
     }
     if (!ops.write_unit(ops.ctx, u.addr, u.data, u.len, &busy, &err))
       return stop(r, Result::WriteFailed, u.addr, u.region, err);
@@ -77,6 +78,18 @@ bool verify(Report &r, const image::Image &img, const plan::Plan &pl, const Ops 
       return stop(r, Result::ReadFailed, u.addr, u.region, nullptr);
     for (uint32_t k = 0; k < u.len; k++)
       if (readback[k] != u.data[k]) return stop(r, Result::Mismatch, u.addr + k, u.region, nullptr);
+  }
+  return true;
+}
+
+// Вся область — 0xFF; иначе стоп с адресом первого другого байта. Читает кусками буфера.
+bool verify_erased(Report &r, const chip::Region &reg, const Ops &ops) {
+  for (uint32_t off = 0; off < reg.size; off += MAX_UNIT) {
+    uint32_t addr = reg.start + off;
+    uint32_t len = reg.size - off < MAX_UNIT ? reg.size - off : MAX_UNIT;
+    if (!ops.read(ops.ctx, addr, readback, len)) return stop(r, Result::ReadFailed, addr, &reg, nullptr);
+    uint32_t k = first_not_erased(readback, len);
+    if (k < len) return stop(r, Result::NotErased, addr + k, &reg, nullptr);
   }
   return true;
 }
@@ -112,21 +125,10 @@ void erase_main(Report &out, const chip::Desc &desc, const Ops &ops) {
     return;
   }
   out.main_erase_us = busy;
-  out.out_of_datasheet = busy > desc.erase_max_us;
+  out.out_of_datasheet = busy > desc.main_erase_max_us;
   ops.reload_watchdog(ops.ctx);
   uint32_t t0 = ops.now_us(ops.ctx);
-  for (uint32_t off = 0; off < main->size; off += MAX_UNIT) {
-    uint32_t len = main->size - off < MAX_UNIT ? main->size - off : MAX_UNIT;
-    if (!ops.read(ops.ctx, main->start + off, readback, len)) {
-      stop(out, Result::ReadFailed, main->start + off, main, nullptr);
-      return;
-    }
-    for (uint32_t k = 0; k < len; k++)
-      if (readback[k] != 0xFF) {
-        stop(out, Result::NotErased, main->start + off + k, main, nullptr);
-        return;
-      }
-  }
+  verify_erased(out, *main, ops);
   out.verify_us = ops.now_us(ops.ctx) - t0;
 }
 

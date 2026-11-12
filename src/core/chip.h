@@ -54,6 +54,8 @@ struct Desc {
   TimingFn timing;  // nullptr — чип загрузки таймингов не требует
   // время стирания и записи единицы по даташиту, мкс
   uint32_t erase_typ_us, erase_max_us, write_typ_us, write_max_us;
+  // наибольшее время полного стирания основной области (команда erase) по даташиту, мкс
+  uint32_t main_erase_max_us;
 };
 
 // Область записи (Flash с единицей стирания), целиком содержащая [addr, addr + len),

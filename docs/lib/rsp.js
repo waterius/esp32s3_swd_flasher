@@ -15,7 +15,8 @@ export function checksum(bytes) {
   return sum;
 }
 
-function needsEscape(b) {
+/** Байт, который в двоичных данных пакета экранируется. */
+export function needsEscape(b) {
   return b === 0x23 || b === 0x24 || b === 0x7d || b === 0x2a; // # $ } *
 }
 

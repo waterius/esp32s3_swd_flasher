@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseFile, buildImage, parseMemoryMap, writeChunks, hex32, ImageError } from '../../docs/lib/image.js';
-import { escapedLength } from '../../docs/lib/rsp.js';
+import { escapedLength, needsEscape } from '../../docs/lib/rsp.js';
 import { hexFile, fill } from './ihex_util.mjs';
 
 // Карта памяти, которую отдаёт оснастка с py32f002b (src/core/gdb.cpp, memory_map).
@@ -77,7 +77,7 @@ test('блоки в одной области сливаются, через р�
 
 test('куски записи с экранированием помещаются в предел', () => {
   const bytes = Uint8Array.from(fill(5000, (i) => (i % 3 ? 0x23 : 0x01))); // много «#»
-  const chunks = writeChunks([{ addr: 0x08000000, bytes }], 4032, escapedLength);
+  const chunks = writeChunks([{ addr: 0x08000000, bytes }], 4032, needsEscape);
   let total = 0;
   for (const c of chunks) {
     const head = `vFlashWrite:${c.addr.toString(16)}:`.length;

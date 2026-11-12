@@ -1,6 +1,7 @@
 #include "port/dap.h"
 
 #include <Arduino.h>
+#include <string.h>
 
 #include "pins.h"
 #include "port/swd.h"
@@ -141,13 +142,19 @@ bool write_block(uint32_t addr, const uint32_t *words, uint32_t count) {
 }
 
 bool read_bytes(uint32_t addr, uint8_t *buf, uint32_t len) {
-  static uint32_t words[0x800 / 4 + 2];
-  uint32_t first = addr & ~3u;
-  uint32_t count = (addr + len - first + 3) / 4;
-  if (count > sizeof words / sizeof words[0]) return false;
-  if (!read_block(first, words, count)) return false;
-  const uint8_t *bytes = reinterpret_cast<const uint8_t *>(words);  // ESP32-S3 — little-endian, как и Cortex-M
-  for (uint32_t i = 0; i < len; i++) buf[i] = bytes[addr - first + i];
+  constexpr uint32_t CHUNK = 0x800;           // байт за один read_block
+  static uint32_t words[CHUNK / 4 + 2];       // +2 слова: невыровненные начало и конец
+  while (len) {
+    uint32_t n = len < CHUNK ? len : CHUNK;
+    uint32_t first = addr & ~3u;
+    uint32_t count = (addr + n - first + 3) / 4;
+    if (!read_block(first, words, count)) return false;
+    const uint8_t *bytes = reinterpret_cast<const uint8_t *>(words);  // ESP32-S3 — little-endian, как и Cortex-M
+    memcpy(buf, bytes + (addr - first), n);
+    addr += n;
+    buf += n;
+    len -= n;
+  }
   return true;
 }
 
