@@ -159,3 +159,27 @@ export function writeChunks(runs, limit, needsEscape) {
   }
   return out;
 }
+
+/**
+ * Метки выбранных файлов (jaffa-flasher-page design §5). files — [{name, parsed?}], regions — из
+ * ответа chip: [{start, end, name, main}], end не входит. Возвращает на каждый файл
+ * [{kind: 'region' | 'overlap', text}]: имя каждой неосновной области, которую файл задевает, и
+ * «пересекается с <файл>» для каждого файла выше по списку с общими адресами. Байты не сравнивает:
+ * противоречие байтов отвергает buildImage.
+ */
+export function fileTags(files, regions = []) {
+  const touches = (ranges, start, end) => ranges.some((r) => r.start < end && start < r.end);
+  return files.map((f, i) => {
+    if (!f.parsed) return [];
+    const tags = [];
+    for (const reg of regions) {
+      if (!reg.main && touches(f.parsed.ranges, reg.start, reg.end)) tags.push({ kind: 'region', text: reg.name });
+    }
+    for (const prev of files.slice(0, i)) {
+      if (prev.parsed && prev.parsed.ranges.some((r) => touches(f.parsed.ranges, r.start, r.end))) {
+        tags.push({ kind: 'overlap', text: `пересекается с ${prev.name}` });
+      }
+    }
+    return tags;
+  });
+}

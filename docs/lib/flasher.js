@@ -71,6 +71,7 @@ export class Flasher {
     this.busy = false; // идёт сеанс gdb: поле команд недоступно
     this.chip = null;
     this.supported = [];
+    this.regions = []; // записываемые области выбранного чипа из ответа chip (jaffa-flasher-page §4)
     this.map = null;
     this.mode = 'text';
     this.parser = new Parser();
@@ -85,7 +86,14 @@ export class Flasher {
   }
 
   state() {
-    return { connected: this.connected, busy: this.busy, chip: this.chip, supported: this.supported, map: this.map };
+    return {
+      connected: this.connected,
+      busy: this.busy,
+      chip: this.chip,
+      supported: this.supported,
+      regions: this.regions,
+      map: this.map,
+    };
   }
 
   _changed() {
@@ -165,8 +173,17 @@ export class Flasher {
     this.lastLineAt = Date.now();
     if (own) {
       let m;
-      if ((m = /^# чип: ([^,\s]+)/.exec(line))) this._setChip(m[1]);
-      else if (line.startsWith('# чип не выбран')) this._setChip(null);
+      if ((m = /^# область (0x[0-9A-F]+)–(0x[0-9A-F]+): (.+?)(, основная)?$/i.exec(line))) {
+        const r = { start: Number(m[1]), end: Number(m[2]) + 1, name: m[3], main: Boolean(m[4]) };
+        this.regions = [...this.regions, r];
+        this._changed();
+      } else if ((m = /^# чип: ([^,\s]+)/.exec(line))) {
+        if (/^# чип: \S+$/.test(line)) this.regions = []; // ответ chip: дальше идут его области
+        this._setChip(m[1]);
+      } else if (line.startsWith('# чип не выбран')) {
+        this.regions = [];
+        this._setChip(null);
+      }
       else if ((m = /^# поддержаны: (.*)$/.exec(line))) {
         this.supported = m[1].split(',').map((s) => s.trim()).filter(Boolean);
         this._changed();

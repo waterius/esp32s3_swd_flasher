@@ -1,4 +1,5 @@
 // Команды программатора: help, chip, info, erase, reset, baud и, через monitor, swdp_scan (design §11).
+// chip перечисляет области чипа, baud задаёт и формат кадра лога (jaffa-flasher-page design §4, §7).
 // Один обработчик для строки в текстовом режиме и для monitor в gdb — одинаковые ответы.
 #pragma once
 #include <stdint.h>
@@ -11,7 +12,18 @@ namespace commands {
 constexpr uint32_t BAUD_MIN = 1200;
 constexpr uint32_t BAUD_MAX = 2000000;
 
-// Что команды делают на плате: выбор чипа (с NVS), сеанс SWD, сброс, скорость лога.
+// UART лога платы: скорость и формат кадра (jaffa-flasher-page design §7).
+struct LogFormat {
+  uint32_t baud;
+  uint8_t data_bits;  // 5–8
+  char parity;        // 'N', 'E', 'O'
+  uint8_t stop_bits;  // 1, 2
+};
+
+// «8E1» → биты, чётность, стоп; false — формат неверный, out не тронут.
+bool parse_format(const char *text, LogFormat *out);
+
+// Что команды делают на плате: выбор чипа (с NVS), сеанс SWD, сброс, UART лога.
 struct Host {
   void *ctx;
   const chip::Desc *(*chip)(void *ctx);
@@ -24,8 +36,8 @@ struct Host {
   // Полное стирание основной flash в идущем сеансе; строки и итог выводит само.
   bool (*erase)(void *ctx, gdb::LineFn emit, void *emit_ctx);
   void (*reset_board)(void *ctx);
-  uint32_t (*baud)(void *ctx);
-  void (*set_baud)(void *ctx, uint32_t baud);
+  LogFormat (*log)(void *ctx);
+  void (*set_log)(void *ctx, const LogFormat &format);
 };
 
 // Откуда пришла команда: строкой в мониторе порта или monitor в gdb. swdp_scan — только из gdb:

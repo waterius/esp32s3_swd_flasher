@@ -14,7 +14,7 @@ const Region REGIONS[] = {
     // имя, для сообщений, начало, размер, единица, читать до записи, проверять стирание, вид,
     // основная (её стирает erase одной операцией, RM §4.2.3.4)
     {"flash", "flash", 0x08000000, 24 * 1024, 128, false, false, Kind::Flash, true},  // RM §4.2.1
-    {"otp", "OTP", 0x1FFF0280, 128, 128, true, true, Kind::Flash, false},  // USER OTP, RM §4.5.8
+    {"otp", "USER OTP", 0x1FFF0280, 128, 128, true, true, Kind::Flash, false},  // USER OTP, RM §4.5.8
     {"ram", "ОЗУ", 0x20000000, 3 * 1024, 0, false, false, Kind::Ram, false},
 };
 

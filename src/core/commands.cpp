@@ -21,6 +21,18 @@ void supported(gdb::LineFn emit, void *ectx) {
   emit(ectx, line);
 }
 
+// Записываемые области выбранного чипа — имена для людей и для страницы (jaffa-flasher-page §4).
+void regions(const chip::Desc &d, gdb::LineFn emit, void *ectx) {
+  char line[96];
+  for (uint8_t i = 0; i < d.region_count; i++) {
+    const chip::Region &r = d.regions[i];
+    if (r.kind != chip::Kind::Flash || !r.unit) continue;
+    snprintf(line, sizeof line, "# область 0x%08lX–0x%08lX: %s%s", (unsigned long)r.start,
+             (unsigned long)(r.start + r.size - 1), r.title, r.main ? ", основная" : "");
+    emit(ectx, line);
+  }
+}
+
 // Слово команды и аргумент: «baud 9600» → «baud», «9600».
 void split(const char *line, char *word, size_t wsize, const char **arg) {
   size_t i = 0;
@@ -41,6 +53,7 @@ void cmd_chip(const Host &h, const char *arg, gdb::LineFn emit, void *ectx) {
     if (d) {
       snprintf(line, sizeof line, "# чип: %s", d->name);
       emit(ectx, line);
+      regions(*d, emit, ectx);
     } else {
       emit(ectx, NO_CHIP);
     }
@@ -56,6 +69,7 @@ void cmd_chip(const Host &h, const char *arg, gdb::LineFn emit, void *ectx) {
   h.set_chip(h.ctx, d);
   snprintf(line, sizeof line, "# чип: %s", d->name);
   emit(ectx, line);
+  regions(*d, emit, ectx);
 }
 
 void cmd_info(const Host &h, gdb::LineFn emit, void *ectx) {
@@ -85,23 +99,42 @@ void cmd_scan(const Host &h, gdb::LineFn emit, void *ectx) {
   emit(ectx, line);
 }
 
+// baud [скорость [формат]]: без аргументов — показать; неверное — подсказка, ничего не меняется.
 void cmd_baud(const Host &h, const char *arg, gdb::LineFn emit, void *ectx) {
-  char line[64];
+  char line[80];
+  LogFormat f = h.log(h.ctx);
   if (*arg) {
     char *end = nullptr;
     unsigned long v = strtoul(arg, &end, 10);
-    if (*end || v < BAUD_MIN || v > BAUD_MAX) {
+    if ((*end && *end != ' ') || v < BAUD_MIN || v > BAUD_MAX) {
       snprintf(line, sizeof line, "# скорость лога: от %lu до %lu", (unsigned long)BAUD_MIN,
                (unsigned long)BAUD_MAX);
       return emit(ectx, line);
     }
-    h.set_baud(h.ctx, (uint32_t)v);
+    while (*end == ' ') end++;
+    if (*end && !parse_format(end, &f)) {
+      return emit(ectx, "# формат лога: биты 5–8, чётность N, E или O, стоп 1 или 2 — например 8N1");
+    }
+    f.baud = (uint32_t)v;
+    h.set_log(h.ctx, f);
   }
-  snprintf(line, sizeof line, "# лог: %lu", (unsigned long)h.baud(h.ctx));
+  snprintf(line, sizeof line, "# лог: %lu %u%c%u", (unsigned long)f.baud, f.data_bits, f.parity,
+           f.stop_bits);
   emit(ectx, line);
 }
 
 }  // namespace
+
+bool parse_format(const char *t, LogFormat *out) {
+  if (!t[0] || !t[1] || !t[2] || t[3]) return false;
+  if (t[0] < '5' || t[0] > '8') return false;
+  if (t[1] != 'N' && t[1] != 'E' && t[1] != 'O') return false;
+  if (t[2] != '1' && t[2] != '2') return false;
+  out->data_bits = (uint8_t)(t[0] - '0');
+  out->parity = t[1];
+  out->stop_bits = (uint8_t)(t[2] - '0');
+  return true;
+}
 
 void help(gdb::LineFn emit, void *ectx) {
   emit(ectx, "# команды:");
@@ -110,7 +143,7 @@ void help(gdb::LineFn emit, void *ectx) {
   emit(ectx, "#   info             подключиться и показать чип; перезапускает плату");
   emit(ectx, "#   erase            стереть всю основную flash (OTP не трогает); перезапускает плату");
   emit(ectx, "#   reset            перезапустить плату");
-  emit(ectx, "#   baud [скорость]  скорость лога платы, 1200–2000000");
+  emit(ectx, "#   baud [скорость [формат]]  лог платы: 1200–2000000, формат 8N1, 8E1…");
   emit(ectx, "# в gdb — monitor <команда>, а также monitor swdp_scan");
 }
 

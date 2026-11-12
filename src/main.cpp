@@ -17,7 +17,7 @@ namespace {
 
 Preferences prefs;
 const chip::Desc *selected = nullptr;
-uint32_t log_baud = 115200;
+commands::LogFormat log_format = {115200, 8, 'N', 1};
 bool log_on = true;
 image::Image img;  // около 32 КБ — не на стеке
 
@@ -42,10 +42,29 @@ void set_chip(void *, const chip::Desc *d) {
 }
 const chip::Desc *get_chip(void *) { return selected; }
 
-uint32_t get_baud(void *) { return log_baud; }
-void set_baud(void *, uint32_t b) {
-  log_baud = b;
-  Serial1.updateBaudRate(b);
+// SERIAL_* ядра по формату: [биты 5–8][чётность N, E, O][стоп 1, 2].
+uint32_t serial_config(const commands::LogFormat &f) {
+  static const uint32_t CFG[4][3][2] = {
+      {{SERIAL_5N1, SERIAL_5N2}, {SERIAL_5E1, SERIAL_5E2}, {SERIAL_5O1, SERIAL_5O2}},
+      {{SERIAL_6N1, SERIAL_6N2}, {SERIAL_6E1, SERIAL_6E2}, {SERIAL_6O1, SERIAL_6O2}},
+      {{SERIAL_7N1, SERIAL_7N2}, {SERIAL_7E1, SERIAL_7E2}, {SERIAL_7O1, SERIAL_7O2}},
+      {{SERIAL_8N1, SERIAL_8N2}, {SERIAL_8E1, SERIAL_8E2}, {SERIAL_8O1, SERIAL_8O2}},
+  };
+  int p = f.parity == 'E' ? 1 : f.parity == 'O' ? 2 : 0;
+  return CFG[f.data_bits - 5][p][f.stop_bits - 1];
+}
+
+void log_uart_begin() {
+  Serial1.begin(log_format.baud, serial_config(log_format), PIN_LOG_RX, -1);
+  gpio_pullup_en((gpio_num_t)PIN_LOG_RX);
+}
+
+commands::LogFormat get_log(void *) { return log_format; }
+// Формат кадра updateBaudRate не меняет — UART заново (jaffa-flasher-page design §7).
+void set_log(void *, const commands::LogFormat &f) {
+  log_format = f;
+  Serial1.end();
+  log_uart_begin();
 }
 
 void log_pause() { log_on = false; }
@@ -77,7 +96,7 @@ bool t_erase(void *, gdb::LineFn emit, void *ectx) {
 }
 
 const commands::Host HOST = {nullptr, get_chip, set_chip, t_active, t_start,  t_end,
-                             t_info,  t_erase,  t_reset,  get_baud, set_baud};
+                             t_info,  t_erase,  t_reset,  get_log, set_log};
 
 gdb::Outcome t_command(void *, const char *line, gdb::LineFn emit, void *ectx) {
   return commands::run(HOST, line, emit, ectx, commands::Source::Gdb);
@@ -108,8 +127,7 @@ void setup() {
   Serial.begin(115200);
 
   Serial1.setRxBufferSize(4096);
-  Serial1.begin(log_baud, SERIAL_8N1, PIN_LOG_RX, -1);
-  gpio_pullup_en((gpio_num_t)PIN_LOG_RX);
+  log_uart_begin();
 
   prefs.begin("flasher", false);
   selected = chips::find(prefs.getString("chip", "").c_str());

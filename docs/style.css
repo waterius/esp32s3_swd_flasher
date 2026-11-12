@@ -1,34 +1,24 @@
+/* Стиль Ватериуса (waterius/ESP8266/data/static/style.css): токены, светлая тема
+   (jaffa-flasher-page design §1). */
 :root {
-  --bg: #f5f6f4;
+  --bg: #ffffff;
   --panel: #ffffff;
-  --fg: #1c2320;
-  --muted: #5f6b66;
-  --line: #d6dbd8;
-  --accent: #0f6b52;
-  --accent-fg: #ffffff;
-  --own: #0f6b52;
+  --fg: #000000;
+  --text: #232323;
+  --muted: #8a8585;
+  --line: #e4e4e4;
+  --accent: #1655f5;
+  --accent-fg: #fbf3f3;
+  --accent-soft: #f3f6fe;
+  --hot: #f53410;
+  --own: #1655f5;
   --ok: #1a7f37;
-  --bad: #b42318;
-  --log-bg: #f0f2f0;
+  --bad: #f53410;
+  --log-bg: #f7f7f7;
+  --radius: 8px;
   --mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
-  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --sans: Roboto, Helvetica, Arial, sans-serif;
   color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #121614;
-    --panel: #1a201d;
-    --fg: #e3e8e5;
-    --muted: #9aa5a0;
-    --line: #2f3834;
-    --accent: #3fbf96;
-    --accent-fg: #0b1210;
-    --own: #5fd3ad;
-    --ok: #4ac26b;
-    --bad: #ff7b72;
-    --log-bg: #111513;
-    color-scheme: dark;
-  }
 }
 
 * {
@@ -37,8 +27,15 @@
 body {
   margin: 0;
   background: var(--bg);
-  color: var(--fg);
-  font: 15px/1.5 var(--sans);
+  color: var(--text);
+  font: 16px/1.5 var(--sans);
+}
+a.link {
+  color: var(--accent);
+  text-decoration: none;
+}
+a.link:hover {
+  color: var(--hot);
 }
 .top,
 main,
@@ -51,11 +48,14 @@ main,
   padding-block: 24px 8px;
 }
 h1 {
-  font-size: 1.5rem;
-  margin: 0 0 4px;
+  font: 700 32px/1.2 Helvetica, Arial, sans-serif;
+  color: var(--fg);
+  margin: 16px 0 8px;
 }
 h2 {
-  font-size: 1.05rem;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--fg);
   margin: 0 0 12px;
 }
 .lead,
@@ -74,8 +74,47 @@ main {
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 16px;
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.sponsor {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: none;
+}
+.sponsor img {
+  display: block;
+}
+.sponsor.small {
+  font-size: 12px;
+}
+.wiring {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+}
+.steps {
+  margin: 0;
+  padding-left: 24px;
+}
+.steps > li {
+  margin-bottom: 16px;
+}
+.steps > li::marker {
+  font-weight: 700;
+  color: var(--accent);
+}
+.step-title {
+  font-weight: 700;
+  color: var(--fg);
+}
+.row.tight {
+  margin: 0;
+  gap: 8px;
 }
 .row {
   display: flex;
@@ -114,20 +153,32 @@ button,
 select {
   border: 1px solid var(--line);
   background: var(--panel);
-  border-radius: 6px;
-  padding: 6px 12px;
+  border-radius: var(--radius);
+  padding: 8px 14px;
   cursor: pointer;
+  transition: background 0.3s, color 0.3s;
+}
+button:hover:not(:disabled) {
+  border-color: var(--accent);
 }
 button.primary {
+  min-height: 48px;
+  min-width: 160px;
+  padding: 0 24px;
   background: var(--accent);
   color: var(--accent-fg);
   border-color: var(--accent);
-  font-weight: 600;
+  font-size: 16px;
+}
+button.primary:hover:not(:disabled) {
+  background: #0f44cc;
 }
 button.quiet {
-  padding: 2px 8px;
-  font-size: 0.85rem;
-  color: var(--muted);
+  padding: 4px 12px;
+  font-size: 14px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: transparent;
 }
 button:disabled,
 select:disabled,
@@ -146,8 +197,8 @@ input:not([type]),
 input[type='text'] {
   border: 1px solid var(--line);
   background: var(--bg);
-  border-radius: 6px;
-  padding: 6px 8px;
+  border-radius: var(--radius);
+  padding: 8px 10px;
 }
 .file input {
   position: absolute;
@@ -159,8 +210,9 @@ input[type='text'] {
   display: inline-block;
   border: 1px dashed var(--accent);
   color: var(--accent);
-  border-radius: 6px;
-  padding: 6px 12px;
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  padding: 10px 16px;
   cursor: pointer;
 }
 .files {
@@ -172,9 +224,35 @@ input[type='text'] {
   gap: 4px;
 }
 .files li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+.fname {
+  font-weight: 700;
+  color: var(--fg);
+}
+.franges {
   font-family: var(--mono);
   font-size: 0.85rem;
-  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+.tag {
+  border-radius: var(--radius);
+  padding: 1px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.tag.region {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.tag.overlap {
+  background: #fdeae6;
+  color: var(--hot);
 }
 .files .bad,
 .bad {
@@ -218,14 +296,14 @@ pre {
   white-space: pre;
   overflow-x: auto;
   background: var(--log-bg);
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 8px;
   margin-top: 8px;
 }
 .log {
   background: var(--log-bg);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius);
   height: 320px;
   overflow: auto;
   padding: 8px;
@@ -267,4 +345,12 @@ pre {
 }
 .foot a {
   color: inherit;
+}
+input[type='checkbox'] {
+  accent-color: var(--accent);
+  width: 18px;
+  height: 18px;
+}
+#verify:disabled {
+  opacity: 1; /* всегда отмечена: проверку делает программатор (jaffa-flasher-page design §6) */
 }

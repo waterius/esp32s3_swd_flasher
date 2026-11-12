@@ -195,7 +195,7 @@ static void test_otp_not_erased_is_not_written(void) {
   TEST_ASSERT_EQUAL(writer::Result::NotErased, rep.result);
   TEST_ASSERT_EQUAL_HEX8(0xFF, fc.otp[0]);  // запись не начиналась
   TEST_ASSERT_EQUAL_HEX8(0xAA, fc.otp[1]);
-  TEST_ASSERT_NOT_NULL(strstr(describe(), "# OTP не стёрлась: 0x1FFF0280|"));
+  TEST_ASSERT_NOT_NULL(strstr(describe(), "# USER OTP не стёрлась: 0x1FFF0280|"));
 }
 
 // spec: "swd-flash/Сверка после записи/Запись не удалась"
