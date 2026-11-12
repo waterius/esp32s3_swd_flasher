@@ -1,0 +1,12 @@
+.pio/
+.env*
+.claude/settings.local.json
+__pycache__/
+.DS_Store
+
+# Образы чужих прошивок и данных для USER OTP в git не кладём; исключение — нейтральные
+# образы для тестов.
+*.hex
+*.elf
+*.bin
+!test/fixtures/**
