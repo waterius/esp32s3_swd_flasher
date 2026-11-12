@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/tools/claude-hooks/guard.sh\"",
+            "statusMessage": "Проверка правил репозитория…"
+          }
+        ]
+      }
+    ]
+  }
+}
