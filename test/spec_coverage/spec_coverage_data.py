@@ -26,7 +26,7 @@ from __future__ import annotations
 #
 # Пример заполнения:
 #     TRACKED = {"sales-plan-control", "sales-plan-create"}
-TRACKED: set[str] = set()
+TRACKED: set[str] = {"swd-flash", "gdb-server", "target-log"}
 
 # Сценарии, проверенные не автотестом. Ключ — путь
 # `<capability>/<Requirement>/<Scenario>` дословно, как в спеке;

@@ -14,7 +14,10 @@
     включается сам в момент архивации, когда требование становится постоянным.
 
 Отчёт по активным change'ам печатается всегда:
-    python -m pytest tests/test_spec_coverage.py -s -q
+    python3 -m pytest test/spec_coverage -s -q
+
+В этом репозитории тест закрывает сценарий комментарием `// spec: "<путь>"` над тестом
+Unity или `node:test` (см. `marked()`).
 
 Установка: положи этот файл и `spec_coverage_data.py` рядом в тестовую папку
 проекта, заполни `TRACKED` и зарегистрируй маркер `spec` (см. `README.md`
@@ -126,12 +129,21 @@ def marked() -> set[str]:
     строк этого достаточно; свой файл из выборки исключён, иначе примеры в
     докстринге выше засчитались бы как покрытие.
     """
+    # В этом репозитории тесты не на pytest: Unity на C++ (`test/test_*/`) и `node:test`
+    # (`test/web/`). Сценарий в них отмечается комментарием над тестом:
+    #     // spec: "<capability>/<Requirement>/<Scenario>"
+    # Ищем по всей папке `test/`, кроме самого гейта.
+    test_root = REPO_ROOT / "test"
     sources = "\n".join(
         path.read_text(encoding="utf-8")
-        for path in TESTS_DIR.glob("test_*.py")
-        if path.name != Path(__file__).name
+        for path in sorted(test_root.rglob("*"))
+        if path.suffix in {".c", ".cpp", ".h", ".mjs", ".js", ".py"}
+        and path.is_file()
+        and TESTS_DIR not in path.parents
     )
-    return set(re.findall(r'@pytest\.mark\.spec\(\s*"([^"]+)"', sources))
+    found = set(re.findall(r'@pytest\.mark\.spec\(\s*"([^"]+)"', sources))
+    found |= set(re.findall(r'//\s*spec:\s*"([^"]+)"', sources))
+    return found
 
 
 def covered() -> set[str]:
