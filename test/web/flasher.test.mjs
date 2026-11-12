@@ -36,8 +36,31 @@ test('после подключения — chip: выбранный чип и �
   assert.deepEqual(flasher.supported, ['py32f002b']);
   assert.deepEqual(lines, [
     ['# чип: py32f002b', true],
+    ['# область 0x08000000–0x08005FFF: flash, основная', true],
+    ['# область 0x1FFF0280–0x1FFF02FF: USER OTP', true],
     ['# поддержаны: py32f002b', true],
   ]);
+});
+
+test('области чипа из ответа chip; info их не сбрасывает', async () => {
+  const { flasher } = await connected();
+  assert.deepEqual(flasher.regions, [
+    { start: 0x08000000, end: 0x08006000, name: 'flash', main: true },
+    { start: 0x1fff0280, end: 0x1fff0300, name: 'USER OTP', main: false },
+  ]);
+  await flasher.command('info');
+  await tick();
+  assert.equal(flasher.regions.length, 2);
+});
+
+// spec: "web-flash/Терминал/Формат лога со страницы"
+test('формат лога — baud со скоростью и форматом', async () => {
+  const { fake, flasher, lines } = await connected();
+  lines.length = 0;
+  await flasher.command('baud 9600 8E1');
+  await tick();
+  assert.equal(fake.commands.at(-1), 'baud 9600 8E1');
+  assert.deepEqual(lines.at(-1), ['# лог: 9600 8E1', true]);
 });
 
 test('чип не выбран, затем выбор', async () => {

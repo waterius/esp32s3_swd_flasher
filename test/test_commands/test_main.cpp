@@ -17,7 +17,7 @@ struct FakeHost {
   int starts, ends, resets, infos, erases;
   bool start_fails;
   bool erase_fails;
-  uint32_t baud;
+  commands::LogFormat log;
 };
 static FakeHost fh;
 
@@ -50,11 +50,11 @@ static bool h_erase(void *, gdb::LineFn emit, void *ectx) {
   return !fh.erase_fails;
 }
 static void h_reset(void *) { fh.resets++; }
-static uint32_t h_baud(void *) { return fh.baud; }
-static void h_set_baud(void *, uint32_t b) { fh.baud = b; }
+static commands::LogFormat h_log(void *) { return fh.log; }
+static void h_set_log(void *, const commands::LogFormat &f) { fh.log = f; }
 
 static const commands::Host HOST = {nullptr, h_chip,  h_set_chip, h_active, h_start,   h_end,
-                                    h_info,  h_erase, h_reset,    h_baud,   h_set_baud};
+                                    h_info,  h_erase, h_reset,    h_log,    h_set_log};
 
 static char out[2048];
 static gdb::Outcome outcome;
@@ -70,9 +70,14 @@ static const char *run_from(const char *line, commands::Source src) {
 static const char *run(const char *line) { return run_from(line, commands::Source::Text); }
 static const char *gdb_run(const char *line) { return run_from(line, commands::Source::Gdb); }
 
+#define REGIONS_PY32F002B                               \
+  "# чип: py32f002b|"                                   \
+  "# область 0x08000000–0x08005FFF: flash, основная|" \
+  "# область 0x1FFF0280–0x1FFF02FF: USER OTP|"
+
 void setUp(void) {
   memset(&fh, 0, sizeof fh);
-  fh.baud = 115200;
+  fh.log = {115200, 8, 'N', 1};
 }
 void tearDown(void) {}
 
@@ -82,10 +87,11 @@ static void test_chip_without_selection_shows_hint_and_list(void) {
   TEST_ASSERT_EQUAL_STRING("# чип не выбран: chip <имя>|# поддержаны: py32f002b|", run("chip"));
 }
 
+// spec: "swd-flash/Области чипа в ответе chip/Области py32f002b"
 static void test_chip_selects_known_chip(void) {
-  TEST_ASSERT_EQUAL_STRING("# чип: py32f002b|", run("chip py32f002b"));
+  TEST_ASSERT_EQUAL_STRING(REGIONS_PY32F002B, run("chip py32f002b"));
   TEST_ASSERT_EQUAL_PTR(&chips::py32f002b, fh.chip);
-  TEST_ASSERT_EQUAL_STRING("# чип: py32f002b|# поддержаны: py32f002b|", run("chip"));
+  TEST_ASSERT_EQUAL_STRING(REGIONS_PY32F002B "# поддержаны: py32f002b|", run("chip"));
 }
 
 // spec: "swd-flash/Чип выбирается аргументом/Неизвестный чип"
@@ -164,9 +170,32 @@ static void test_reset_refused_during_session(void) {
 // ---------------------------------------------------------------- лог
 
 static void test_baud_sets_speed(void) {
-  TEST_ASSERT_EQUAL_STRING("# лог: 9600|", run("baud 9600"));
-  TEST_ASSERT_EQUAL_UINT32(9600, fh.baud);
-  TEST_ASSERT_EQUAL_STRING("# лог: 9600|", run("baud"));
+  TEST_ASSERT_EQUAL_STRING("# лог: 9600 8N1|", run("baud 9600"));
+  TEST_ASSERT_EQUAL_UINT32(9600, fh.log.baud);
+  TEST_ASSERT_EQUAL_STRING("# лог: 9600 8N1|", run("baud"));
+}
+
+// spec: "target-log/Скорость лога/Другой формат кадра"
+static void test_baud_sets_format(void) {
+  TEST_ASSERT_EQUAL_STRING("# лог: 9600 8E1|", run("baud 9600 8E1"));
+  TEST_ASSERT_EQUAL_UINT32(9600, fh.log.baud);
+  TEST_ASSERT_EQUAL_UINT8(8, fh.log.data_bits);
+  TEST_ASSERT_EQUAL('E', fh.log.parity);
+  TEST_ASSERT_EQUAL_UINT8(1, fh.log.stop_bits);
+  TEST_ASSERT_EQUAL_STRING("# лог: 57600 8E1|", run("baud 57600"));  // без формата формат прежний
+  TEST_ASSERT_EQUAL_STRING("# лог: 1200 5O2|", run("baud 1200 5O2"));
+}
+
+// spec: "target-log/Скорость лога/Неверный формат"
+static void test_baud_bad_format_is_refused(void) {
+  const char *hint = "# формат лога: биты 5–8, чётность N, E или O, стоп 1 или 2 — например 8N1|";
+  TEST_ASSERT_EQUAL_STRING(hint, run("baud 9600 9X3"));
+  TEST_ASSERT_EQUAL_STRING(hint, run("baud 9600 8N"));
+  TEST_ASSERT_EQUAL_STRING(hint, run("baud 9600 8N12"));
+  TEST_ASSERT_EQUAL_STRING(hint, run("baud 9600 4N1"));
+  TEST_ASSERT_EQUAL_STRING(hint, run("baud 9600 8n1"));
+  TEST_ASSERT_EQUAL_UINT32(115200, fh.log.baud);
+  TEST_ASSERT_EQUAL('N', fh.log.parity);
 }
 
 // spec: "target-log/Скорость лога/Неверная скорость"
@@ -174,7 +203,7 @@ static void test_baud_out_of_range_is_refused(void) {
   TEST_ASSERT_EQUAL_STRING("# скорость лога: от 1200 до 2000000|", run("baud 7"));
   TEST_ASSERT_EQUAL_STRING("# скорость лога: от 1200 до 2000000|", run("baud 2000001"));
   TEST_ASSERT_EQUAL_STRING("# скорость лога: от 1200 до 2000000|", run("baud 9600x"));
-  TEST_ASSERT_EQUAL_UINT32(115200, fh.baud);
+  TEST_ASSERT_EQUAL_UINT32(115200, fh.log.baud);
 }
 
 // ---------------------------------------------------------------- прочее
@@ -304,6 +333,8 @@ int main(void) {
   RUN_TEST(test_reset_refused_during_session);
   RUN_TEST(test_baud_sets_speed);
   RUN_TEST(test_baud_out_of_range_is_refused);
+  RUN_TEST(test_baud_sets_format);
+  RUN_TEST(test_baud_bad_format_is_refused);
   RUN_TEST(test_unknown_command_prints_help);
   RUN_TEST(test_empty_line_prints_nothing);
   RUN_TEST(test_erase_without_chip_does_not_connect);

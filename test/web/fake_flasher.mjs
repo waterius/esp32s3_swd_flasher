@@ -24,6 +24,7 @@ const SUPPORTED = 'PacketSize=1000;qXfer:memory-map:read+;qXfer:features:read+;Q
 export class FakeFlasher {
   constructor({ chip = 'py32f002b' } = {}) {
     this.chip = chip;
+    this.log = { baud: 115200, format: '8N1' };
     this.flash = new Uint8Array(FLASH_SIZE).fill(0x00); // старая прошивка
     this.otp = new Uint8Array(128).fill(0xff);
     // подстройки
@@ -201,6 +202,12 @@ export class FakeFlasher {
 
   // ---------------------------------------------------------------- команды (core/commands)
 
+  // Как core/commands: записываемые области py32f002b.
+  _regions(emit) {
+    emit('# область 0x08000000–0x08005FFF: flash, основная');
+    emit('# область 0x1FFF0280–0x1FFF02FF: USER OTP');
+  }
+
   _command(line, emit, source) {
     const [word, ...rest] = line.split(' ');
     const arg = rest.join(' ').trim();
@@ -214,10 +221,29 @@ export class FakeFlasher {
         }
         this.chip = arg;
         emit(`# чип: ${arg}`);
+        this._regions(emit);
         return 'none';
       }
-      emit(this.chip ? `# чип: ${this.chip}` : '# чип не выбран: chip <имя>');
+      if (this.chip) {
+        emit(`# чип: ${this.chip}`);
+        this._regions(emit);
+      } else {
+        emit('# чип не выбран: chip <имя>');
+      }
       emit('# поддержаны: py32f002b');
+      return 'none';
+    }
+    if (word === 'baud') {
+      const [speed, format] = arg.split(' ').filter(Boolean);
+      if (speed) {
+        const v = Number(speed);
+        if (!/^\d+$/.test(speed) || v < 1200 || v > 2000000) return emit('# скорость лога: от 1200 до 2000000'), 'none';
+        if (format && !/^[5-8][NEO][12]$/.test(format)) {
+          return emit('# формат лога: биты 5–8, чётность N, E или O, стоп 1 или 2 — например 8N1'), 'none';
+        }
+        this.log = { baud: v, format: format || this.log.format };
+      }
+      emit(`# лог: ${this.log.baud} ${this.log.format}`);
       return 'none';
     }
     if (word === 'reset') {

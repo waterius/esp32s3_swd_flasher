@@ -48,7 +48,9 @@ python3 -m http.server -d docs 8000          # страница на http://loca
   `session` (порядок сеанса).
 - `src/main.cpp` — USB, DTR, NVS, лог UART1, команды. Единственное место, где всё встречается.
 - `docs/` — страница прошивки (change `web-flash-page`), GitHub Pages из `master`, `/docs`. Обычные
-  ES-модули без сборки и внешних файлов: `lib/ihex.js`, `lib/image.js`, `lib/rsp.js` — чистый код;
+  ES-модули без сборки и внешних файлов: `lib/ihex.js`, `lib/image.js`, `lib/rsp.js`,
+  `lib/terminal.js` — чистый код; `img/` — логотип спонсора и схема подключения (change
+  `jaffa-flasher-page`);
   `lib/flasher.js` — разговор с программатором через протокол «порт программатора»; `lib/webserial.js` — порт
   на Web Serial; `app.js` — экран, все надписи в объекте `T`. Тесты — `test/web/` на поддельном
   программаторе `fake_flasher.mjs`; меняя пакеты или строки `# ` в прошивке, правьте и его. Страница

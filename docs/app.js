@@ -1,17 +1,33 @@
-// Экран страницы прошивки: кнопки, поля, лог, ход записи; точка сборки (design §3, §6, §11).
+// Экран страницы прошивки: кнопки, поля, терминал, ход записи; точка сборки (design §3, §6, §11;
+// jaffa-flasher-page design §2, §5–§9).
 // Кадров протокола не знает: разговор с программатором — lib/flasher.js, порт — lib/webserial.js.
 
 import { Flasher, hexDump } from './lib/flasher.js';
 import { serialAvailable, choosePort, WebSerialPort } from './lib/webserial.js';
-import { parseFile, hex32 } from './lib/image.js';
+import { parseFile, hex32, fileTags } from './lib/image.js';
+import { SPEEDS, DATA_BITS, PARITY, STOP_BITS, DEFAULT_UART, baudCommand, terminalControls, LogView } from './lib/terminal.js';
+
+// Спонсор — одна ссылка для шапки и подвала (jaffa-flasher-page design §2).
+const SPONSOR_URL = 'https://waterius.ru/?utm_source=jaffa_flasher&utm_medium=web&utm_campaign=jaffa_flasher';
+const MAKE_URL = 'https://github.com/waterius/jaffa_flasher#сборка-и-заливка-программатора';
 
 // Все надписи — здесь, чтобы позже добавить английский (design §11).
 const T = {
-  title: 'Прошивка через программатор Jaffa Flasher',
-  lead: 'Программатор Jaffa Flasher на ESP32-S3 пишет микроконтроллер на плате по SWD. Страница говорит с ним через USB-порт: выберите файлы Intel HEX и нажмите «Прошить».',
+  sponsoredBy: 'Sponsored by',
+  title: 'Прошивка через Jaffa Flasher',
+  lead: 'Программатор Jaffa Flasher на МК ESP32-S3 для прошивки МК PY32.',
   noSerial: 'Нужен Chrome или Edge на компьютере.',
   noSerialFile: 'Нужен Chrome или Edge на компьютере, а страница — открытая по ссылке https:// или с localhost, не из файла.',
-  secConnect: 'Программатор Jaffa Flasher',
+  secMake: 'Как сделать программатор',
+  makeText: 'Нужны плата ESP32-S3 Super Mini и кабель USB. Прошивка программатора собирается в PlatformIO и заливается по USB самой платы, одной командой.',
+  makeLink: 'Инструкция: сборка и заливка программатора',
+  secWiring: 'Подключение',
+  wiringHint: 'Плата с PY32 питается от 3,0–3,6 В. Сигнальные провода — через резисторы 100–330 Ом. 3V3 программатора подключайте, только если у платы нет своего питания.',
+  secFlash: 'Прошивка',
+  step1: 'Подключите Jaffa Flasher к USB',
+  step2: 'Нажмите «Подключить»',
+  step3: 'Выберите файлы',
+  step4: 'Нажмите «Прошить»',
   connect: 'Подключить',
   disconnect: 'Отключить',
   connecting: 'подключение…',
@@ -22,19 +38,20 @@ const T = {
   chipNone: 'не выбран',
   chipSelect: 'Выбрать чип',
   chipSet: 'Выбрать',
-  secFlash: 'Прошивка',
   chooseFiles: 'Выбрать файлы…',
-  filesHint: 'Intel HEX: прошивка и, если нужно, файл для USER OTP. Файлы не покидают браузер.',
+  filesHint: 'Intel HEX: прошивка и, если нужно, файл для USER OTP. Адреса записи — из самих файлов. Файлы не покидают браузер.',
   noFiles: 'файлы не выбраны',
   eraseAll: 'Стереть всю основную flash перед записью (USER OTP не стирается)',
+  verify: 'Проверить прошивку после записи — программатор сверяет каждую записанную страницу',
   flash: 'Прошить',
   phaseConnect: 'подключение к плате…',
   phaseErase: 'полное стирание…',
   phaseWrite: (sent, total) => `запись: ${sent} из ${total} Б`,
-  phaseDone: 'стирание и запись страниц…',
+  phaseDone: 'стирание, запись и сверка страниц…',
   resultOk: 'Итог: ок',
   resultBad: (reason) => `Итог: ошибка — ${reason}`,
   secMemory: 'Память',
+  clearScreen: 'Очистить экран',
   region: 'Область',
   regionManual: 'адрес и длина',
   regionFlash: (r) => `flash ${hex32(r.start)}, ${r.length} Б`,
@@ -46,8 +63,13 @@ const T = {
   badAddress: 'адрес — hex, например 0x08000000',
   badLength: 'длина — число байт больше нуля',
   reading: 'чтение…',
-  secLog: 'Лог и команды',
-  clear: 'Очистить',
+  secLog: 'Терминал',
+  logOn: 'Включить лог',
+  logOff: 'Выключить лог',
+  uartSpeed: 'Скорость',
+  uartBits: 'Биты',
+  uartParity: 'Чётность',
+  uartStop: 'Стоп',
   cmdLabel: 'Команда программатора',
   send: 'Отправить',
   cmdHint: 'Команды: help, chip, info, erase, reset, baud. Строки «# » — от программатора, остальное — лог платы.',
@@ -85,10 +107,17 @@ const el = {
   cmd: $('cmd'),
   send: $('send'),
   clear: $('clear'),
+  dumpClear: $('dump-clear'),
+  logToggle: $('log-toggle'),
+  uartSpeed: $('uart-speed'),
+  uartBits: $('uart-bits'),
+  uartParity: $('uart-parity'),
+  uartStop: $('uart-stop'),
 };
+const UART = [el.uartSpeed, el.uartBits, el.uartParity, el.uartStop];
 
 let flasher = null;
-let state = { connected: false, busy: false, chip: null, supported: [], map: null };
+let state = { connected: false, busy: false, chip: null, supported: [], regions: [], map: null };
 let files = []; // [{name, text, parsed?, error?}]
 let working = false; // подключение или сеанс, начатый со страницы
 let mapLoading = false;
@@ -101,6 +130,18 @@ for (const node of document.querySelectorAll('[data-t]')) {
 }
 el.connect.textContent = T.connect;
 el.status.textContent = T.notConnected;
+for (const id of ['sponsor-top', 'sponsor-foot']) $(id).href = SPONSOR_URL;
+$('make-link').href = MAKE_URL;
+
+const options = (select, items) => select.replaceChildren(...items.map(([v, t]) => new Option(t, String(v))));
+options(el.uartSpeed, SPEEDS.map((v) => [v, String(v)]));
+options(el.uartBits, DATA_BITS.map((v) => [v, String(v)]));
+options(el.uartParity, PARITY);
+options(el.uartStop, STOP_BITS.map((v) => [v, String(v)]));
+el.uartSpeed.value = String(DEFAULT_UART.speed);
+el.uartBits.value = String(DEFAULT_UART.bits);
+el.uartParity.value = DEFAULT_UART.parity;
+el.uartStop.value = String(DEFAULT_UART.stop);
 
 function render() {
   const on = state.connected;
@@ -117,8 +158,13 @@ function render() {
   const goodFiles = files.length && files.every((f) => f.parsed);
   el.flash.disabled = !free || !state.chip || !goodFiles;
   el.read.disabled = el.region.disabled = !free || !state.chip;
-  el.cmd.disabled = el.send.disabled = !free;
+  const term = terminalControls({ connected: on, busy: state.busy, working });
+  for (const s of UART) s.disabled = !term.uart;
+  el.logToggle.disabled = !term.logToggle;
+  el.logToggle.textContent = logView.on ? T.logOff : T.logOn;
+  el.cmd.disabled = el.send.disabled = !term.command;
   renderRegions();
+  renderFiles();
 }
 
 function renderRegions() {
@@ -151,7 +197,28 @@ function logLine(text, cls) {
   if (stick) el.log.scrollTop = el.log.scrollHeight;
 }
 
+// Терминал: выключенный лог строки не выводит и не копит (jaffa-flasher-page design §8).
+const logView = new LogView(logLine);
+
 el.clear.addEventListener('click', () => el.log.replaceChildren());
+el.logToggle.addEventListener('click', () => {
+  logView.toggle();
+  render();
+});
+
+// Формат лога: любой из четырёх списков — одна команда baud (jaffa-flasher-page design §7).
+for (const s of UART) {
+  s.addEventListener('change', () =>
+    command(
+      baudCommand({
+        speed: el.uartSpeed.value,
+        bits: el.uartBits.value,
+        parity: el.uartParity.value,
+        stop: el.uartStop.value,
+      }),
+    ),
+  );
+}
 
 // ---------------------------------------------------------------- подключение
 
@@ -163,7 +230,7 @@ async function connect() {
   render();
   const port = new WebSerialPort(serial);
   flasher = new Flasher(port, {
-    onLine: (line, own) => logLine(line, own ? 'own' : ''),
+    onLine: (line, own) => logView.show(line, own ? 'own' : ''),
     onState: (s) => {
       const wasOn = state.connected;
       state = s;
@@ -216,7 +283,7 @@ function loadMapSoon() {
 
 async function command(line) {
   if (!flasher || !line) return;
-  logLine(`> ${line}`, 'cmd');
+  logView.show(`> ${line}`, 'cmd');
   try {
     await flasher.command(line);
   } catch (e) {
@@ -253,15 +320,25 @@ function renderFiles() {
     el.fileList.replaceChildren(Object.assign(document.createElement('li'), { textContent: T.noFiles }));
     return;
   }
+  // Метки: неосновная область из ответа chip и пересечение с файлами выше (design §5).
+  const tags = fileTags(files, state.regions);
   el.fileList.replaceChildren(
-    ...files.map((f) => {
+    ...files.map((f, i) => {
       const li = document.createElement('li');
       if (f.error) {
         li.textContent = f.error;
         li.className = 'bad';
-      } else {
-        const ranges = f.parsed.ranges.map((r) => `${hex32(r.start)}–${hex32(r.end - 1)}`).join(', ');
-        li.textContent = `${f.name}: ${ranges}, ${f.parsed.size} Б`;
+        return li;
+      }
+      const name = Object.assign(document.createElement('span'), { className: 'fname', textContent: f.name });
+      const ranges = f.parsed.ranges.map((r) => `${hex32(r.start)}–${hex32(r.end - 1)}`).join(', ');
+      const where = Object.assign(document.createElement('span'), {
+        className: 'franges',
+        textContent: `${ranges}, ${f.parsed.size} Б`,
+      });
+      li.append(name, where);
+      for (const t of tags[i]) {
+        li.append(Object.assign(document.createElement('span'), { className: `tag ${t.kind}`, textContent: t.text }));
       }
       return li;
     }),
@@ -332,6 +409,11 @@ function parseLen(text) {
   return v > 0 ? v : NaN;
 }
 
+el.dumpClear.addEventListener('click', () => {
+  el.dump.textContent = '';
+  el.dump.hidden = true;
+});
+
 el.read.addEventListener('click', async () => {
   if (!flasher) return;
   const addr = parseAddr(el.addr.value);
@@ -358,7 +440,7 @@ el.read.addEventListener('click', async () => {
 if (!serialAvailable()) {
   el.noSerial.textContent = location.protocol === 'file:' ? T.noSerialFile : T.noSerial;
   el.noSerial.hidden = false;
-  for (const id of ['sec-connect', 'sec-flash', 'sec-memory', 'sec-log']) $(id).hidden = true;
+  for (const id of ['sec-flash', 'sec-memory', 'sec-log']) $(id).hidden = true;
 } else {
   renderFiles();
   render();
