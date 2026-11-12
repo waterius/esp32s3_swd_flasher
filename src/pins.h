@@ -6,4 +6,4 @@
 #define PIN_SWCLK 1   // SWCLK платы (у PY32F002B — PA2)
 #define PIN_SWDIO 2   // SWDIO платы (у PY32F002B — PB6)
 #define PIN_NRST 4    // NRST платы (у PY32F002B — PC0), открытый сток
-#define PIN_LOG_RX 5  // TX лога платы → приём UART1 оснастки, подтяжка вверх
+#define PIN_LOG_RX 5  // TX лога платы → приём UART1 программатора, подтяжка вверх

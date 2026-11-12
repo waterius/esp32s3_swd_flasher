@@ -1,4 +1,4 @@
-// Разговор с оснасткой на поддельной оснастке: строки и команды, сеанс записи и чтения в порядке
+// Разговор с программатором на поддельном программаторе: строки и команды, сеанс записи и чтения в порядке
 // PlatformIO, отказы до записи, сроки ответов (design §4–§7).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -48,7 +48,7 @@ test('чип не выбран, затем выбор', async () => {
   assert.equal(flasher.chip, 'py32f002b');
 });
 
-test('лог платы — отдельно от строк оснастки; CR LF и куски строк', async () => {
+test('лог платы — отдельно от строк программатора; CR LF и куски строк', async () => {
   const { fake, lines } = await connected();
   lines.length = 0;
   fake._data(new TextEncoder().encode('темпера'));
@@ -68,7 +68,7 @@ test('команда во время сеанса недоступна', async (
   await p;
 });
 
-test('итог из строки оснастки', () => {
+test('итог из строки программатора', () => {
   assert.deepEqual(parseResult('# итог: ок, 120 мс'), { ok: true, text: '120 мс' });
   assert.deepEqual(parseResult('# итог: ошибка, замок OTP не ставится'), { ok: false, text: 'замок OTP не ставится' });
   assert.equal(parseResult('# итог'), null);
@@ -117,7 +117,7 @@ test('адрес вне карты — имя файла и адрес, сеан
   const big = { name: 'big.hex', text: hexFile(0x08005ff0, fill(32, 1)) };
   const r = await flasher.flash([big]);
   assert.equal(r.ok, false);
-  assert.equal(r.reason, 'big.hex: адрес 0x08006000 вне карты памяти оснастки');
+  assert.equal(r.reason, 'big.hex: адрес 0x08006000 вне карты памяти программатора');
   assert.equal(r.touched, false);
   assert.equal(fake.attaches, 0);
   assert.ok(!kinds(fake).some((k) => k.startsWith('vFlash') || k === 'vAttach'));
@@ -164,7 +164,7 @@ test('стирание отказало — запись не начинаетс
   assert.equal(kinds(fake).at(-1), 'vKill');
 });
 
-test('чип не отвечает — D, причина из строк оснастки', async () => {
+test('чип не отвечает — D, причина из строк программатора', async () => {
   const { fake, flasher } = await connected();
   fake.attachFails = true;
   const r = await flasher.flash([FW]);
@@ -174,10 +174,10 @@ test('чип не отвечает — D, причина из строк осн�
   assert.equal(kinds(fake).at(-1), 'D');
 });
 
-test('оснастка не отвечает — ошибка срока, порт закрыт', async () => {
+test('программатор не отвечает — ошибка срока, порт закрыт', async () => {
   const { fake, flasher } = await connected();
   fake.silent = true;
-  await assert.rejects(flasher.flash([FW]), /оснастка не отвечает/);
+  await assert.rejects(flasher.flash([FW]), /программатор не отвечает/);
   assert.equal(flasher.connected, false);
   assert.equal(fake.closed, 1);
   assert.equal(flasher.busy, false);
@@ -197,7 +197,7 @@ test('USB выдернули посреди сеанса — ошибка, не 
   const p = flasher.flash([FW]);
   await tick();
   fake.unplug();
-  await assert.rejects(p, /оснастка отключена/);
+  await assert.rejects(p, /программатор отключён/);
   assert.equal(flasher.connected, false);
 });
 

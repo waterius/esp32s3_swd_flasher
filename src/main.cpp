@@ -1,4 +1,4 @@
-// Точка сборки оснастки: USB CDC и DTR, NVS, лог платы на UART1, функции цели для core/gdb и
+// Точка сборки программатора Jaffa Flasher: USB CDC и DTR, NVS, лог платы на UART1, функции цели для core/gdb и
 // хозяина для core/commands (design §1, §10, §12). Единственное место, где всё встречается.
 #include <Arduino.h>
 #include <Preferences.h>
@@ -54,7 +54,7 @@ void log_clear() {
 }
 void log_resume() { log_on = true; }
 
-void print(const char *line);  // строка оснастки в вывод — ниже, после консоли
+void print(const char *line);  // строка программатора в вывод — ниже, после консоли
 
 // ---------------------------------------------------------------- цель для gdb
 
@@ -72,7 +72,7 @@ bool t_flash(void *, const image::Image &im) { return session::flash(im); }
 void t_info(void *, gdb::LineFn emit, void *ectx) { session::info(emit, ectx); }
 void t_reset(void *) { session::reset_board(); }
 bool t_erase(void *, gdb::LineFn emit, void *ectx) {
-  if (emit == console::Console::emit) emit = nullptr;  // в вывод оснастки сессия пишет сама
+  if (emit == console::Console::emit) emit = nullptr;  // в вывод программатора сессия пишет сама
   return session::erase_main(emit, ectx);
 }
 

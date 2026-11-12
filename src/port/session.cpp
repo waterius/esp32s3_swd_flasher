@@ -16,7 +16,7 @@ namespace {
 
 enum class Method : uint8_t { None, UnderReset, AfterReset };
 
-constexpr uint32_t MARKER = 0x5E551011;  // «идёт сеанс» в RTC-памяти: переживает сбой оснастки
+constexpr uint32_t MARKER = 0x5E551011;  // «идёт сеанс» в RTC-памяти: переживает сбой программатора
 RTC_NOINIT_ATTR uint32_t rtc_marker;
 
 constexpr uint32_t NRST_PULSE_MS = 2;     // с RC на NRST нога должна успеть дойти до нуля
@@ -39,7 +39,7 @@ void print(const char *line) {
   if (hooks.print) hooks.print(line);
 }
 
-// Строка о сеансе — в вывод оснастки и, если команда пришла из gdb, ещё и в gdb.
+// Строка о сеансе — в вывод программатора и, если команда пришла из gdb, ещё и в gdb.
 void say(const char *line, gdb::LineFn emit, void *ectx) {
   print(line);
   if (emit) emit(ectx, line);
@@ -148,7 +148,7 @@ const writer::Ops WRITE_OPS = {nullptr, w_unlock, w_lock, w_erase, w_write, w_re
 
 bool plan_read(void *, uint32_t addr, uint8_t *buf, uint32_t len) { return dap::read_bytes(addr, buf, len); }
 
-// Куда идут строки шага: вывод оснастки и, если emit не nullptr, ещё и gdb.
+// Куда идут строки шага: вывод программатора и, если emit не nullptr, ещё и gdb.
 struct Say {
   gdb::LineFn emit;
   void *ectx;
@@ -205,7 +205,7 @@ void recover(const chip::Desc *d) {
   if (hooks.log_pause) hooks.log_pause();
   attempted = true;
   finish();
-  print("# сеанс прерван перезапуском оснастки: плата запущена заново");
+  print("# сеанс прерван перезапуском программатора: плата запущена заново");
 }
 
 bool active() { return is_active; }

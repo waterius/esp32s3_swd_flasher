@@ -1,5 +1,5 @@
 // Экран страницы прошивки: кнопки, поля, лог, ход записи; точка сборки (design §3, §6, §11).
-// Кадров протокола не знает: разговор с оснасткой — lib/flasher.js, порт — lib/webserial.js.
+// Кадров протокола не знает: разговор с программатором — lib/flasher.js, порт — lib/webserial.js.
 
 import { Flasher, hexDump } from './lib/flasher.js';
 import { serialAvailable, choosePort, WebSerialPort } from './lib/webserial.js';
@@ -7,17 +7,17 @@ import { parseFile, hex32 } from './lib/image.js';
 
 // Все надписи — здесь, чтобы позже добавить английский (design §11).
 const T = {
-  title: 'Прошивка через оснастку',
-  lead: 'Оснастка на ESP32-S3 пишет микроконтроллер на плате по SWD. Страница говорит с ней через USB-порт: выберите файлы Intel HEX и нажмите «Прошить».',
+  title: 'Прошивка через программатор Jaffa Flasher',
+  lead: 'Программатор Jaffa Flasher на ESP32-S3 пишет микроконтроллер на плате по SWD. Страница говорит с ним через USB-порт: выберите файлы Intel HEX и нажмите «Прошить».',
   noSerial: 'Нужен Chrome или Edge на компьютере.',
   noSerialFile: 'Нужен Chrome или Edge на компьютере, а страница — открытая по ссылке https:// или с localhost, не из файла.',
-  secConnect: 'Оснастка',
+  secConnect: 'Программатор Jaffa Flasher',
   connect: 'Подключить',
   disconnect: 'Отключить',
   connecting: 'подключение…',
-  notConnected: 'не подключена',
-  connected: 'подключена',
-  lost: 'оснастка отключена',
+  notConnected: 'не подключён',
+  connected: 'подключён',
+  lost: 'программатор отключён',
   chipLabel: 'Чип:',
   chipNone: 'не выбран',
   chipSelect: 'Выбрать чип',
@@ -48,11 +48,11 @@ const T = {
   reading: 'чтение…',
   secLog: 'Лог и команды',
   clear: 'Очистить',
-  cmdLabel: 'Команда оснастки',
+  cmdLabel: 'Команда программатора',
   send: 'Отправить',
-  cmdHint: 'Команды: help, chip, info, erase, reset, baud. Строки «# » — от оснастки, остальное — лог платы.',
+  cmdHint: 'Команды: help, chip, info, erase, reset, baud. Строки «# » — от программатора, остальное — лог платы.',
   privacy: 'Страница работает в браузере: файлы и прочитанная память никуда не отправляются.',
-  repo: 'Исходники и инструкция — github.com/waterius/esp32s3_swd_flasher',
+  repo: 'Исходники и инструкция — github.com/waterius/jaffa_flasher',
   busy: 'идёт сеанс',
 };
 

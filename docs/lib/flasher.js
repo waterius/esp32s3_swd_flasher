@@ -1,12 +1,12 @@
-// Разговор с оснасткой: текст и команды, разбор строк «# », сеанс записи и чтения по протоколу
+// Разговор с программатором Jaffa Flasher: текст и команды, разбор строк «# », сеанс записи и чтения по протоколу
 // gdb — тот же порядок, что у PlatformIO (design §5–§7). Web Serial и страницу не знает: порт
-// приходит протоколом «порт оснастки» (design §4). Об изделиях ничего не знает.
+// приходит протоколом «порт программатора» (design §4). Об изделиях ничего не знает.
 
 import { frame, framePacket, fromHex, toHex, needsEscape, Parser } from './rsp.js';
 import { parseFile, buildImage, parseMemoryMap, writeChunks, hex32, ImageError } from './image.js';
 
 /**
- * Порт оснастки — что flasher.js ждёт от порта (реализация в браузере — webserial.js):
+ * Порт программатора — что flasher.js ждёт от порта (реализация в браузере — webserial.js):
  * @typedef {object} FlasherPort
  * @property {() => Promise<void>} open  открыть и поднять DTR и RTS; повторный open — ошибка
  * @property {() => Promise<void>} close  закрыть, отпустив потоки и опустив линии
@@ -15,7 +15,7 @@ import { parseFile, buildImage, parseMemoryMap, writeChunks, hex32, ImageError }
  * @property {(cb: () => void) => void} onClose  порт пропал (выдернули USB)
  */
 
-/** Сроки ответов оснастки, мс (design §5). */
+/** Сроки ответов программатора, мс (design §5). */
 export const TIMEOUTS = {
   packet: 2000, // обычный пакет
   erase: 10000, // qRcmd erase: стирание и чтение всей основной flash по SWD
@@ -24,7 +24,7 @@ export const TIMEOUTS = {
   quiet: 300, // тишина, после которой строк сеанса больше не ждём
 };
 
-const PACKET_SIZE = 0x1000; // PacketSize оснастки
+const PACKET_SIZE = 0x1000; // PacketSize программатора
 const WRITE_LIMIT = PACKET_SIZE - 64; // кусок vFlashWrite после экранирования (design §5)
 const READ_CHUNK = 0x400; // m: ответ в hex вдвое длиннее (design §7)
 const XFER_CHUNK = 0x800;
@@ -42,7 +42,7 @@ export function hexDump(addr, bytes) {
   return out;
 }
 
-/** Итог из строки оснастки «# итог: ок, 120 мс» / «# итог: ошибка, причина» или null. */
+/** Итог из строки программатора «# итог: ок, 120 мс» / «# итог: ошибка, причина» или null. */
 export function parseResult(line) {
   const m = /^# итог: (ок|ошибка)(?:, (.*))?$/.exec(line);
   return m ? { ok: m[1] === 'ок', text: m[2] || '' } : null;
@@ -50,7 +50,7 @@ export function parseResult(line) {
 
 class Timeout extends Error {
   constructor() {
-    super('оснастка не отвечает');
+    super('программатор не отвечает');
   }
 }
 
@@ -58,7 +58,7 @@ export class Flasher {
   /**
    * @param {FlasherPort} port
    * @param {object} [opts]
-   * @param {(line: string, own: boolean) => void} [opts.onLine]  строка вывода; own — строка оснастки «# »
+   * @param {(line: string, own: boolean) => void} [opts.onLine]  строка вывода; own — строка программатора «# »
    * @param {(state: object) => void} [opts.onState]  подключение, чип, сеанс изменились
    * @param {object} [opts.timeouts]  сроки вместо TIMEOUTS
    */
@@ -125,13 +125,13 @@ export class Flasher {
     if (!this.connected) return;
     this.connected = false;
     this.busy = false;
-    this._fail(new Error('оснастка отключена'));
+    this._fail(new Error('программатор отключён'));
     this._changed();
   }
 
-  /** Команда оснастки строкой (help, chip, info, erase, reset, baud). */
+  /** Команда программатора строкой (help, chip, info, erase, reset, baud). */
   async command(line) {
-    if (!this.connected) throw new Error('оснастка не подключена');
+    if (!this.connected) throw new Error('программатор не подключён');
     if (this.busy) throw new Error('идёт сеанс');
     await this.port.write(enc.encode(line + '\n'));
   }
@@ -238,7 +238,7 @@ export class Flasher {
     this.console = [];
     await this.port.write(enc.encode('+'));
     const sup = await this._send('qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+');
-    if (!/PacketSize=/.test(sup)) throw new Error(`оснастка не отвечает как gdb-сервер: ${sup || 'пусто'}`);
+    if (!/PacketSize=/.test(sup)) throw new Error(`программатор не отвечает как gdb-сервер: ${sup || 'пусто'}`);
     await this._send('QStartNoAckMode');
   }
 
@@ -251,7 +251,7 @@ export class Flasher {
       if (r[0] === 'l') break;
     }
     const map = parseMemoryMap(xml);
-    if (!map.length) throw new Error('оснастка отдала пустую карту памяти: выбран ли чип?');
+    if (!map.length) throw new Error('программатор отдал пустую карту памяти: выбран ли чип?');
     this.map = map;
     return map;
   }
@@ -268,7 +268,7 @@ export class Flasher {
   }
 
   /**
-   * Конец сеанса: last — 'vKill;1' или 'D'; затем перевод строки — оснастка выводит
+   * Конец сеанса: last — 'vKill;1' или 'D'; затем перевод строки — программатор выводит
    * накопленное (design §5, шаги 6–7). expect — сколько строк «# итог:» ждать.
    * Возвращает {reply, lines}.
    */
@@ -302,10 +302,10 @@ export class Flasher {
     return { reply, lines };
   }
 
-  // Сеанс целиком: busy; при любой ошибке — завершить сеанс оснастки. Вышел срок — закрыть порт:
-  // оснастка увидит падение DTR. Другая ошибка в режиме gdb — D и перевод строки, как обычно.
+  // Сеанс целиком: busy; при любой ошибке — завершить сеанс программатора. Вышел срок — закрыть порт:
+  // программатор увидит падение DTR. Другая ошибка в режиме gdb — D и перевод строки, как обычно.
   async _session(body) {
-    if (!this.connected) throw new Error('оснастка не подключена');
+    if (!this.connected) throw new Error('программатор не подключён');
     if (this.busy) throw new Error('идёт сеанс');
     this.busy = true;
     this._changed();
@@ -348,7 +348,7 @@ export class Flasher {
    * @param {boolean} [opts.eraseAll]  полное стирание основной flash перед записью
    * @param {(p: {phase: string, sent: number, total: number}) => void} [opts.onProgress]
    * @returns {Promise<{ok: boolean, reason: string, lines: string[], touched: boolean}>}
-   *   touched — оснастка подключалась к плате.
+   *   touched — программатор подключался к плате.
    */
   async flash(files, opts = {}) {
     const progress = opts.onProgress || (() => {});
@@ -368,7 +368,7 @@ export class Flasher {
         img = buildImage(parsed, map);
       } catch (e) {
         if (!(e instanceof ImageError)) throw e;
-        await this._finish('D', 0); // к плате оснастка не подключалась
+        await this._finish('D', 0); // к плате программатор не подключался
         return { ok: false, reason: e.message, lines: [], touched: false };
       }
       const chunks = writeChunks(img.runs, WRITE_LIMIT, needsEscape);
@@ -392,7 +392,7 @@ export class Flasher {
         for (const b of img.erase) {
           const r = await this._send(`vFlashErase:${b.addr.toString(16)},${b.len.toString(16)}`);
           if (r !== 'OK') {
-            failed = 'оснастка отвергла образ';
+            failed = 'программатор отверг образ';
             break;
           }
         }
@@ -403,7 +403,7 @@ export class Flasher {
         for (const c of chunks) {
           const r = await this._send(framePacket(`vFlashWrite:${c.addr.toString(16)}:`, c.bytes));
           if (r !== 'OK') {
-            failed = 'оснастка отвергла образ';
+            failed = 'программатор отверг образ';
             break;
           }
           sent += c.bytes.length;
@@ -421,7 +421,7 @@ export class Flasher {
     });
   }
 
-  // Итог страницы — по строкам «# итог:» оснастки; своя причина — если их нет.
+  // Итог страницы — по строкам «# итог:» программатора; своя причина — если их нет.
   _result(okByPackets, lines, fallback, touched) {
     const results = lines.map(parseResult).filter(Boolean);
     const bad = results.filter((r) => !r.ok);

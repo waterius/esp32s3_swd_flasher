@@ -5,7 +5,7 @@ import { parseFile, buildImage, parseMemoryMap, writeChunks, hex32, ImageError }
 import { escapedLength, needsEscape } from '../../docs/lib/rsp.js';
 import { hexFile, fill } from './ihex_util.mjs';
 
-// Карта памяти, которую отдаёт оснастка с py32f002b (src/core/gdb.cpp, memory_map).
+// Карта памяти, которую отдаёт программатор с py32f002b (src/core/gdb.cpp, memory_map).
 export const MAP_XML =
   '<?xml version="1.0"?><!DOCTYPE memory-map PUBLIC "+//IDN gnu.org//DTD GDB Memory Map V1.0//EN" ' +
   '"http://sourceware.org/gdb/gdb-memory-map.dtd"><memory-map>' +
@@ -42,7 +42,7 @@ test('прошивка и OTP — блоки и куски', () => {
 
 test('адрес вне карты — имя файла и адрес', () => {
   const f = parseFile('big.hex', hexFile(0x08005ff0, fill(32, 0)));
-  assert.throws(() => buildImage([f], MAP), (e) => e instanceof ImageError && e.message === 'big.hex: адрес 0x08006000 вне карты памяти оснастки');
+  assert.throws(() => buildImage([f], MAP), (e) => e instanceof ImageError && e.message === 'big.hex: адрес 0x08006000 вне карты памяти программатора');
 });
 
 test('ОЗУ — не область записи', () => {

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Записывает байты, которые шлёт gdb из тулчейна PlatformIO, — фикстуры для test/test_gdb.
 
-Заглушка на ПК отвечает gdb так, как ответит оснастка по таблице design §9
+Заглушка на ПК отвечает gdb так, как ответит программатор по таблице design §9
 (openspec/changes/swd-flash-py32f002b/design.md), с картой памяти py32f002b. gdb
 подключается к ней по TCP: протокол тот же, что по USB-порту. Всё, что gdb прислал,
 вместе с `+`, пишется в test/fixtures/gdb_<сценарий>.h массивом байтов.
@@ -78,7 +78,7 @@ def unescape(raw: bytes) -> bytes:
 
 
 class Stub:
-    """Оснастка по таблице design §9 с поддельной памятью чипа."""
+    """Программатор по таблице design §9 с поддельной памятью чипа."""
 
     def __init__(self, fail_done=False, attach_fail=False, on_first_write=None):
         self.fail_done, self.attach_fail, self.on_first_write = fail_done, attach_fail, on_first_write
