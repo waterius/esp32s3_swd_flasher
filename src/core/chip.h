@@ -10,7 +10,8 @@ enum class Kind : uint8_t { Flash, Ram };
 
 // Область памяти чипа: куда оснастка вправе писать (Flash) или что gdb может читать (Ram).
 struct Region {
-  const char *name;
+  const char *name;   // в строках шагов: «# otp: совпадает»
+  const char *title;  // в сообщениях: «OTP не стёрлась»
   uint32_t start;
   uint32_t size;
   uint32_t unit;           // единица стирания, Б; 0 — в область не пишем
