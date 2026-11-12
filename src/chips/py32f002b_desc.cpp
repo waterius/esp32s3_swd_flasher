@@ -55,6 +55,13 @@ chip::Timing timing(uint32_t icscr, uint32_t hsi24_ref, const uint32_t info[5]) 
   return t;
 }
 
+// DBG_IDCODE: значение из RM и значение серийных чипов — RM его не называет, а чипы на платах
+// приставки отдают именно его (waterius.node, замеры 2026-10-02 и 2026-11-12).
+const uint32_t IDS[] = {
+    0x20200061,  // RM §22.9.1, значение после сброса
+    0x20220064,  // PY32F002BF15U6 на платах приставки
+};
+
 }  // namespace
 
 namespace chips {
@@ -64,7 +71,8 @@ const chip::Desc py32f002b = {
     REGIONS,
     sizeof REGIONS / sizeof REGIONS[0],
     0x40015800,  // DBG_IDCODE, RM §22.9.1
-    0x20200061,
+    IDS,
+    sizeof IDS / sizeof IDS[0],
     0x1FFF0000,  // UID, RM §4.3
     16,
     decide,

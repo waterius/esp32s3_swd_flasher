@@ -54,6 +54,10 @@ void make(Plan &out, const image::Image &img, const chip::Desc &desc, ReadFn rea
   }
 }
 
-bool id_matches(const chip::Desc &desc, uint32_t value) { return value == desc.id_value; }
+bool id_matches(const chip::Desc &desc, uint32_t value) {
+  for (uint8_t i = 0; i < desc.id_count; i++)
+    if (desc.ids[i] == value) return true;
+  return false;
+}
 
 }  // namespace plan

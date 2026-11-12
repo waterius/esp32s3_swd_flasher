@@ -46,8 +46,9 @@ struct Desc {
   const char *name;
   const Region *regions;
   uint8_t region_count;
-  uint32_t id_addr;   // регистр идентификатора чипа
-  uint32_t id_value;  // ожидаемое значение
+  uint32_t id_addr;      // регистр идентификатора чипа
+  const uint32_t *ids;   // значения, которые принимаются: ревизии кристалла различаются
+  uint8_t id_count;
   uint32_t uid_addr;
   uint8_t uid_len;
   DecideFn decide;

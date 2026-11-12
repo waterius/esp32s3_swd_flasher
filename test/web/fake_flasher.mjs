@@ -229,7 +229,7 @@ export class FakeFlasher {
     if (word === 'info') {
       if (!this.chip) return emit('# чип не выбран: chip <имя>'), 'none';
       emit(`# чип: ${this.chip}, SWD под сбросом`);
-      emit('# DBG_IDCODE: 0x20200061');
+      emit('# DBG_IDCODE: 0x20220064');
       return 'none';
     }
     if (word === 'swdp_scan') {
