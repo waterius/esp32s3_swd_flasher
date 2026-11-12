@@ -101,6 +101,18 @@ void Server::reply_xfer(const char *doc, size_t doc_len, const char *args, size_
   reply(out, chunk + 1);
 }
 
+// Образ отвергнут из-за адреса вне памяти чипа: gdb после ошибки vFlashDone не шлёт, поэтому
+// причину и итог выводим сразу.
+bool Server::refuse_image() {
+  write_failed_ = true;
+  char line[96];
+  snprintf(line, sizeof line, "# адрес вне памяти чипа: 0x%08lX", (unsigned long)img_.fail_addr());
+  t_.print(t_.ctx, line);
+  t_.print(t_.ctx, "# итог: ошибка, адрес вне памяти чипа");
+  reply("E01");
+  return false;
+}
+
 void Server::end_session() {
   if (t_.session_active(t_.ctx)) t_.end_session(t_.ctx);
   write_ok_ = write_failed_ = image_open_ = false;
@@ -202,7 +214,7 @@ bool Server::on_packet(const uint8_t *d, size_t n) {
       img_.reset(*c);
       image_open_ = true;
     }
-    if (!img_.erase(addr, len)) return write_failed_ = true, reply("E01"), false;
+    if (!img_.erase(addr, len)) return refuse_image();
     reply("OK");
   } else if (starts(d, n, "vFlashWrite:")) {
     const char *colon = static_cast<const char *>(memchr(s + 12, ':', n - 12));
@@ -212,7 +224,8 @@ bool Server::on_packet(const uint8_t *d, size_t n) {
       return reply("E01"), false;
     }
     const uint8_t *data = reinterpret_cast<const uint8_t *>(colon + 1);
-    if (!img_.write(addr, data, (uint32_t)(n - (colon + 1 - s)))) return write_failed_ = true, reply("E01"), false;
+    if (img_.failed()) return write_failed_ = true, reply("E01"), false;  // причина уже выведена
+    if (!img_.write(addr, data, (uint32_t)(n - (colon + 1 - s)))) return refuse_image();
     reply("OK");
   } else if (equals(d, n, "vFlashDone")) {
     if (!session || !image_open_ || img_.failed()) {

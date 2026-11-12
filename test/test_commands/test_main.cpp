@@ -55,11 +55,13 @@ static void collect(void *, const char *line) {
   strncat(out, line, sizeof out - strlen(out) - 2);
   strcat(out, "|");
 }
-static const char *run(const char *line) {
+static const char *run_from(const char *line, commands::Source src) {
   out[0] = 0;
-  commands::run(HOST, line, collect, nullptr);
+  commands::run(HOST, line, collect, nullptr, src);
   return out;
 }
+static const char *run(const char *line) { return run_from(line, commands::Source::Text); }
+static const char *gdb_run(const char *line) { return run_from(line, commands::Source::Gdb); }
 
 void setUp(void) {
   memset(&fh, 0, sizeof fh);
@@ -89,7 +91,7 @@ static void test_unknown_chip_is_refused_and_selection_kept(void) {
 
 // spec: "swd-flash/Чип выбирается аргументом/Чип не выбран"
 static void test_scan_without_chip_does_not_connect(void) {
-  TEST_ASSERT_EQUAL_STRING("# чип не выбран: chip <имя>|", run("swdp_scan"));
+  TEST_ASSERT_EQUAL_STRING("# чип не выбран: chip <имя>|", gdb_run("swdp_scan"));
   TEST_ASSERT_EQUAL(0, fh.starts);
 }
 
@@ -109,14 +111,21 @@ static void test_chip_change_refused_during_session(void) {
 
 static void test_scan_starts_session_and_names_chip(void) {
   fh.chip = &chips::py32f002b;
-  TEST_ASSERT_EQUAL_STRING("# SWD: под сбросом|1 py32f002b|", run("swdp_scan"));
+  TEST_ASSERT_EQUAL_STRING("# SWD: под сбросом|1 py32f002b|", gdb_run("swdp_scan"));
   TEST_ASSERT_TRUE(fh.session);  // сеанс остаётся для attach
 }
 
 static void test_scan_failure_lists_no_chip(void) {
   fh.chip = &chips::py32f002b;
   fh.start_fails = true;
-  TEST_ASSERT_EQUAL_STRING("# чип не отвечает|", run("swdp_scan"));
+  TEST_ASSERT_EQUAL_STRING("# чип не отвечает|", gdb_run("swdp_scan"));
+}
+
+// Сеанс, начатый строкой в мониторе, никто бы не закрыл: ни DTR, ни 60 с тишины этого не делают.
+static void test_scan_typed_in_monitor_is_refused(void) {
+  fh.chip = &chips::py32f002b;
+  TEST_ASSERT_EQUAL_STRING("# swdp_scan — только через monitor в gdb|", run("swdp_scan"));
+  TEST_ASSERT_EQUAL(0, fh.starts);
 }
 
 static void test_info_outside_session_is_a_short_session(void) {
@@ -191,10 +200,11 @@ static bool t_rreg(void *, uint8_t, uint32_t *) { return false; }
 static bool t_wreg(void *, uint8_t, uint32_t) { return false; }
 static bool t_flash(void *, const image::Image &) { return false; }
 static void t_command(void *, const char *line, gdb::LineFn emit, void *ectx) {
-  commands::run(HOST, line, emit, ectx);
+  commands::run(HOST, line, emit, ectx, commands::Source::Gdb);
 }
-static const gdb::Target TARGET = {nullptr, t_chip, t_active, t_start, t_end, t_read,
-                                   t_rreg,  t_wreg, t_flash,  t_command};
+static void t_print(void *, const char *) {}
+static const gdb::Target TARGET = {nullptr, t_chip,  t_active, t_start,  t_end,  t_read,
+                                   t_rreg,  t_wreg,  t_flash,  t_command, t_print};
 
 static void test_monitor_prints_the_same_lines(void) {
   fh.chip = &chips::py32f002b;
@@ -236,6 +246,7 @@ int main(void) {
   RUN_TEST(test_chip_change_refused_during_session);
   RUN_TEST(test_scan_starts_session_and_names_chip);
   RUN_TEST(test_scan_failure_lists_no_chip);
+  RUN_TEST(test_scan_typed_in_monitor_is_refused);
   RUN_TEST(test_info_outside_session_is_a_short_session);
   RUN_TEST(test_info_in_session_keeps_session);
   RUN_TEST(test_reset_restarts_board);

@@ -13,7 +13,8 @@ namespace session {
 struct Hooks {
   void (*print)(const char *line);  // строка оснастки «# …» в вывод
   void (*log_pause)();              // пересылку лога остановить, принятое отбрасывать
-  void (*log_resume)();             // приёмник очистить, пересылку включить
+  void (*log_clear)();              // очистить приёмник лога — до отпускания NRST в конце
+  void (*log_resume)();             // пересылку лога включить
 };
 
 void begin(const Hooks &hooks);

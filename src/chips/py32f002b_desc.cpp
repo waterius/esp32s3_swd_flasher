@@ -30,11 +30,13 @@ Verdict decide(const Region &region, uint32_t, const uint8_t *target, const uint
   return {Decision::Write, nullptr};
 }
 
-// RCC_ICSCR.HSI_FS — биты 15:13, 100 — 24 МГц (RM §8.6.2). Слова заводской области для
-// 24 МГц — RM §4.5.2–4.5.6; регистры — в порядке адресов FLASH_TS0 … FLASH_PRETPE.
-chip::Timing timing(uint32_t icscr, const uint32_t info[5]) {
+// RCC_ICSCR.HSI_FS — биты 15:13 (RM §8.6.2). Код 24 МГц берётся из заводского слова
+// HSI_TRIMMING_FOR_USER по 0x1FFF0100 (RM §4.5.1): значение после сброса в RM (0x00FF10FF) и
+// подпись поля «100 — 24 МГц» противоречат друг другу. Слова таймингов для 24 МГц —
+// RM §4.5.2–4.5.6; регистры — в порядке адресов FLASH_TS0 … FLASH_PRETPE.
+chip::Timing timing(uint32_t icscr, uint32_t hsi24_ref, const uint32_t info[5]) {
   chip::Timing t{};
-  if (((icscr >> 13) & 0x7) != 0x4) {
+  if (((icscr >> 13) & 0x7) != ((hsi24_ref >> 13) & 0x7)) {
     t.ok = false;
     t.reason = "HSI не 24 МГц: снимите питание платы";
     return t;

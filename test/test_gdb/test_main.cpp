@@ -92,8 +92,14 @@ static void t_command(void *, const char *line, gdb::LineFn emit, void *ectx) {
   emit(ectx, "# неизвестная команда");
 }
 
-static const gdb::Target TARGET = {nullptr, t_chip, t_active, t_start, t_end, t_read,
-                                   t_rreg,  t_wreg, t_flash,  t_command};
+static char printed[512];
+static void t_print(void *, const char *line) {
+  strncat(printed, line, sizeof printed - strlen(printed) - 2);
+  strcat(printed, "|");
+}
+
+static const gdb::Target TARGET = {nullptr, t_chip, t_active, t_start,   t_end,  t_read,
+                                   t_rreg,  t_wreg, t_flash,  t_command, t_print};
 
 // ---------------------------------------------------------------- что сервер отправил
 
@@ -135,6 +141,7 @@ static const char *ask(const char *payload) {
 
 void setUp(void) {
   memset(&ft, 0, sizeof ft);
+  printed[0] = 0;
   memset(ft.flash, 0xFF, sizeof ft.flash);
   memset(ft.otp, 0xFF, sizeof ft.otp);
   server.reset_connection();
@@ -256,6 +263,8 @@ static void test_kill_and_detach_leave_gdb_mode(void) {
 static void test_write_outside_regions_fails_and_next_erase_starts_new_image(void) {
   ask("vAttach;1");
   TEST_ASSERT_EQUAL_STRING("E01|", ask("vFlashErase:1fff0080,00000080"));
+  // причина видна и тому, кто шлёт пакеты не через gdb: gdb после ошибки vFlashDone не шлёт
+  TEST_ASSERT_EQUAL_STRING("# адрес вне памяти чипа: 0x1FFF0080|# итог: ошибка, адрес вне памяти чипа|", printed);
   TEST_ASSERT_EQUAL_STRING("OK|", ask("vFlashErase:08000000,00000080"));
   TEST_ASSERT_EQUAL_STRING("OK|", ask("vFlashDone"));
   TEST_ASSERT_EQUAL(1, ft.flashes);

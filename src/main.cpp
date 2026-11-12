@@ -49,15 +49,21 @@ void set_baud(void *, uint32_t b) {
 }
 
 void log_pause() { log_on = false; }
-void log_resume() {
+void log_clear() {
   while (Serial1.available()) Serial1.read();
-  log_on = true;
 }
+void log_resume() { log_on = true; }
+
+void print(const char *line);  // строка оснастки в вывод — ниже, после консоли
 
 // ---------------------------------------------------------------- цель для gdb
 
 bool t_active(void *) { return session::active(); }
-bool t_start(void *, gdb::LineFn emit, void *ectx) { return selected && session::start(*selected, emit, ectx); }
+// Строки сеанса сессия всегда выводит сама; отдельно в emit — только если команда из gdb.
+bool t_start(void *, gdb::LineFn emit, void *ectx) {
+  if (emit == console::Console::emit) emit = nullptr;
+  return selected && session::start(*selected, emit, ectx);
+}
 void t_end(void *) { session::end(); }
 bool t_read(void *, uint32_t a, uint8_t *b, uint32_t n) { return session::read_mem(a, b, n); }
 bool t_rreg(void *, uint8_t i, uint32_t *v) { return session::read_reg(i, v); }
@@ -69,15 +75,18 @@ void t_reset(void *) { session::reset_board(); }
 const commands::Host HOST = {nullptr, get_chip, set_chip, t_active, t_start, t_end,
                              t_info,  t_reset,  get_baud, set_baud};
 
-void t_command(void *, const char *line, gdb::LineFn emit, void *ectx) { commands::run(HOST, line, emit, ectx); }
+void t_command(void *, const char *line, gdb::LineFn emit, void *ectx) {
+  commands::run(HOST, line, emit, ectx, commands::Source::Gdb);
+}
+void t_print(void *, const char *line) { print(line); }
 
-const gdb::Target TARGET = {nullptr, get_chip, t_active, t_start, t_end, t_read,
-                            t_rreg,  t_wreg,   t_flash,  t_command};
+const gdb::Target TARGET = {nullptr, get_chip, t_active, t_start,   t_end,  t_read,
+                            t_rreg,  t_wreg,   t_flash,  t_command, t_print};
 
 gdb::Server server(TARGET, img, usb_write, nullptr);
 
 void console_command(void *, const char *line, gdb::LineFn emit, void *ectx) {
-  commands::run(HOST, line, emit, ectx);
+  commands::run(HOST, line, emit, ectx, commands::Source::Text);
 }
 const console::Io IO = {nullptr, usb_write, console_command};
 console::Console con(server, IO);
@@ -85,7 +94,7 @@ console::Console con(server, IO);
 void print(const char *line) { con.line(line); }
 
 void print_chip() {
-  commands::run(HOST, "chip", console::Console::emit, &con);
+  commands::run(HOST, "chip", console::Console::emit, &con, commands::Source::Text);
 }
 
 }  // namespace
@@ -101,7 +110,7 @@ void setup() {
   prefs.begin("flasher", false);
   selected = chips::find(prefs.getString("chip", "").c_str());
 
-  session::begin({print, log_pause, log_resume});
+  session::begin({print, log_pause, log_clear, log_resume});
   session::recover(selected);
 
   commands::help(console::Console::emit, &con);

@@ -92,11 +92,13 @@ static const uint32_t INFO_RESET[5] = {
     0x00014820,  // SMERTPE
     0x12C05DC0,  // PRETPE 0x12C0 << 16 | PRGTPE 0x5DC0
 };
-static const uint32_t ICSCR_24MHZ = 0x000080FF;  // HSI_FS = 100 — 24 МГц
-static const uint32_t ICSCR_8MHZ = 0x000020FF;   // HSI_FS = 001 — 8 МГц
+// Заводское слово «HSI 24 МГц» по 0x1FFF0100 (RM §4.5.1): HSI_FS в битах 15:13 и подстройка.
+static const uint32_t HSI24_REF = 0x000090A7;    // HSI_FS = 100
+static const uint32_t ICSCR_24MHZ = 0x00FF90A7;  // в RCC_ICSCR то же поле частоты
+static const uint32_t ICSCR_8MHZ = 0x00FF20FF;   // HSI_FS = 001 — 8 МГц
 
 static void test_timing_words_map_to_registers(void) {
-  chip::Timing t = D.timing(ICSCR_24MHZ, INFO_RESET);
+  chip::Timing t = D.timing(ICSCR_24MHZ, HSI24_REF, INFO_RESET);
   TEST_ASSERT_TRUE(t.ok);
   // TS0, TS1, TS2P, TPS3, TS3, PERTPE, SMERTPE, PRGTPE, PRETPE — порядок адресов 0x100…0x120
   const uint32_t want[9] = {0xB4, 0x1B0, 0xB4, 0x6C0, 0xB4, 0x14820, 0x14820, 0x5DC0, 0x12C0};
@@ -106,16 +108,24 @@ static void test_timing_words_map_to_registers(void) {
 static void test_timing_fields_do_not_leak(void) {
   // все биты слов в единицах: каждое поле берёт только свою ширину
   const uint32_t ones[5] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
-  chip::Timing t = D.timing(ICSCR_24MHZ, ones);
+  chip::Timing t = D.timing(ICSCR_24MHZ, HSI24_REF, ones);
   const uint32_t want[9] = {0x1FF, 0x3FF, 0x1FF, 0xFFF, 0x1FF, 0x3FFFF, 0x3FFFF, 0xFFFF, 0x3FFF};
   TEST_ASSERT_EQUAL_HEX32_ARRAY(want, t.regs, 9);
 }
 
 // spec: "swd-flash/Тайминги flash PY32F002B/HSI не 24 МГц"
 static void test_timing_refuses_hsi_other_than_24mhz(void) {
-  chip::Timing t = D.timing(ICSCR_8MHZ, INFO_RESET);
+  chip::Timing t = D.timing(ICSCR_8MHZ, HSI24_REF, INFO_RESET);
   TEST_ASSERT_FALSE(t.ok);
   TEST_ASSERT_EQUAL_STRING("HSI не 24 МГц: снимите питание платы", t.reason);
+}
+
+// Поле частоты сравнивается с заводским словом, а не с кодом из таблицы RM: значение после
+// сброса в RM (0x00FF10FF) и подпись «100 — 24 МГц» противоречат друг другу.
+static void test_timing_follows_factory_hsi_code(void) {
+  TEST_ASSERT_TRUE(D.timing(0x000010FF, 0x000010FF, INFO_RESET).ok);    // оба поля 000
+  TEST_ASSERT_FALSE(D.timing(0x000010FF, HSI24_REF, INFO_RESET).ok);    // 000 против 100
+  TEST_ASSERT_TRUE(D.timing(0x00FF9FFF, HSI24_REF, INFO_RESET).ok);     // подстройка не важна
 }
 
 static void test_find_region_bounds(void) {
@@ -143,6 +153,7 @@ int main(void) {
   RUN_TEST(test_timing_words_map_to_registers);
   RUN_TEST(test_timing_fields_do_not_leak);
   RUN_TEST(test_timing_refuses_hsi_other_than_24mhz);
+  RUN_TEST(test_timing_follows_factory_hsi_code);
   RUN_TEST(test_find_region_bounds);
   RUN_TEST(test_chip_is_found_by_name);
   return UNITY_END();

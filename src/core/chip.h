@@ -32,14 +32,14 @@ struct Verdict {
 using DecideFn = Verdict (*)(const Region &region, uint32_t addr, const uint8_t *target,
                              const uint8_t *current, uint32_t len);
 
-// Тайминги flash: по регистру частоты и словам заводской области — значения регистров
-// таймингов или отказ.
+// Тайминги flash: по регистру частоты, заводскому слову нужной частоты и словам заводской
+// области — значения регистров таймингов или отказ.
 struct Timing {
   bool ok;
   const char *reason;
   uint32_t regs[9];
 };
-using TimingFn = Timing (*)(uint32_t clock_reg, const uint32_t info[5]);
+using TimingFn = Timing (*)(uint32_t clock_reg, uint32_t clock_ref, const uint32_t info[5]);
 
 struct Desc {
   const char *name;

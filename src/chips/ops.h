@@ -20,6 +20,8 @@ struct Ops {
   void (*reload_watchdog)();
   // Строки для `info`: идентификатор, UID, частота, тайминги.
   void (*info)(gdb::LineFn emit, void *emit_ctx);
+  // Частота и тайминги одной строкой без «# » — шаг записи: «HSI 24 МГц, тайминги заводские».
+  const char *(*timing_text)();
 };
 
 extern const Ops py32f002b_ops;

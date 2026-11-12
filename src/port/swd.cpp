@@ -130,8 +130,9 @@ Ack transfer(bool ap, bool read, uint8_t a, uint32_t *data) {
     idle(8);
     return (Ack)ack;
   }
-  // нет ответа или ошибка протокола: пропустить возможную фазу данных
-  for (int i = 0; i < 33; i++) cycle();
+  // нет ответа или ошибка протокола: пропустить возможную фазу данных — переход и 33 такта,
+  // как в CMSIS-DAP
+  for (int i = 0; i < 34; i++) cycle();
   dio_drive(true);
   idle(8);
   return Ack::Error;

@@ -27,6 +27,8 @@ struct Target {
   bool (*flash)(void *ctx, const image::Image &img);  // записать образ по design §8
   // Команда оснастки, та же, что строкой в текстовом режиме (design §11).
   void (*command)(void *ctx, const char *line, LineFn emit, void *emit_ctx);
+  // Строка оснастки «# …» в вывод порта (он выйдет, когда порт освободится).
+  void (*print)(void *ctx, const char *line);
 };
 
 using SendFn = void (*)(void *ctx, const uint8_t *data, size_t len);
@@ -50,6 +52,7 @@ class Server {
   void reply(const char *s);
   void reply_xfer(const char *doc, size_t doc_len, const char *args, size_t args_len);
   void end_session();
+  bool refuse_image();
   static void emit_console(void *self, const char *line);
 
   const Target &t_;

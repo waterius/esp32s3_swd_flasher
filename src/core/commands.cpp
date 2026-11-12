@@ -103,7 +103,7 @@ void help(gdb::LineFn emit, void *ectx) {
   emit(ectx, "# в gdb — monitor <команда>, а также monitor swdp_scan");
 }
 
-void run(const Host &h, const char *line, gdb::LineFn emit, void *ectx) {
+void run(const Host &h, const char *line, gdb::LineFn emit, void *ectx, Source source) {
   char word[16];
   const char *arg;
   split(line, word, sizeof word, &arg);
@@ -111,7 +111,10 @@ void run(const Host &h, const char *line, gdb::LineFn emit, void *ectx) {
   if (strcmp(word, "help") == 0) return help(emit, ectx);
   if (strcmp(word, "chip") == 0) return cmd_chip(h, arg, emit, ectx);
   if (strcmp(word, "info") == 0) return cmd_info(h, emit, ectx);
-  if (strcmp(word, "swdp_scan") == 0) return cmd_scan(h, emit, ectx);
+  if (strcmp(word, "swdp_scan") == 0) {
+    if (source != Source::Gdb) return emit(ectx, "# swdp_scan — только через monitor в gdb");
+    return cmd_scan(h, emit, ectx);
+  }
   if (strcmp(word, "reset") == 0) {
     if (h.session_active(h.ctx)) return emit(ectx, BUSY);
     h.reset_board(h.ctx);

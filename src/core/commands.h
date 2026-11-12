@@ -26,7 +26,11 @@ struct Host {
   void (*set_baud)(void *ctx, uint32_t baud);
 };
 
-void run(const Host &host, const char *line, gdb::LineFn emit, void *emit_ctx);
+// Откуда пришла команда: строкой в мониторе порта или monitor в gdb. swdp_scan — только из gdb:
+// сеанс, начатый строкой, ничто бы не закрыло.
+enum class Source : uint8_t { Text, Gdb };
+
+void run(const Host &host, const char *line, gdb::LineFn emit, void *emit_ctx, Source source);
 
 // Подсказка при старте и на неизвестную команду.
 void help(gdb::LineFn emit, void *emit_ctx);
