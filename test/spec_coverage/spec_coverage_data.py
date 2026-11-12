@@ -26,7 +26,7 @@ from __future__ import annotations
 #
 # Пример заполнения:
 #     TRACKED = {"sales-plan-control", "sales-plan-create"}
-TRACKED: set[str] = {"swd-flash", "gdb-server", "target-log"}
+TRACKED: set[str] = {"swd-flash", "gdb-server", "target-log", "web-flash"}
 
 # Сценарии, проверенные не автотестом. Ключ — путь
 # `<capability>/<Requirement>/<Scenario>` дословно, как в спеке;
@@ -72,3 +72,21 @@ MANUAL: dict[str, str] = {
         "target-log/Перезапуск платы командой/Перезапуск",
     ]
 }
+
+# Страница прошивки: браузер, Web Serial, живая оснастка и чип. Порядок пакетов, отказы до записи и
+# чтение проверены на поддельной оснастке (test/web/); здесь — то, что видно только в Chrome на
+# плате или в другом браузере. Протокол — dev/board-checks-web.md (задачи 7.x web-flash-page).
+_WEB = "dev/board-checks-web.md"
+MANUAL.update(
+    {
+        path: _WEB
+        for path in [
+            "web-flash/Страница без установки программ/Браузер без Web Serial",
+            "web-flash/Страница без установки программ/Нет сетевых запросов",
+            "web-flash/Подключение к оснастке/Первое подключение",
+            "web-flash/Подключение к оснастке/Подключения не перезагружают оснастку",
+            "web-flash/Прошивка за один сеанс/Полное стирание",
+            "web-flash/Лог платы и команды/Перезапуск платы со страницы",
+        ]
+    }
+)

@@ -1,4 +1,4 @@
-// Команды оснастки: help, chip, info, reset, baud и, через monitor, swdp_scan (design §11).
+// Команды оснастки: help, chip, info, erase, reset, baud и, через monitor, swdp_scan (design §11).
 // Один обработчик для строки в текстовом режиме и для monitor в gdb — одинаковые ответы.
 #pragma once
 #include <stdint.h>
@@ -21,6 +21,8 @@ struct Host {
   void (*end_session)(void *ctx);
   // Сведения о чипе в идущем сеансе: способ подключения, IDCODE, идентификатор, UID, HSI.
   void (*info)(void *ctx, gdb::LineFn emit, void *emit_ctx);
+  // Полное стирание основной flash в идущем сеансе; строки и итог выводит само.
+  bool (*erase)(void *ctx, gdb::LineFn emit, void *emit_ctx);
   void (*reset_board)(void *ctx);
   uint32_t (*baud)(void *ctx);
   void (*set_baud)(void *ctx, uint32_t baud);
@@ -30,7 +32,8 @@ struct Host {
 // сеанс, начатый строкой, ничто бы не закрыло.
 enum class Source : uint8_t { Text, Gdb };
 
-void run(const Host &host, const char *line, gdb::LineFn emit, void *emit_ctx, Source source);
+// Возвращает, что команда сделала с чипом (erase — WriteOk или WriteFailed).
+gdb::Outcome run(const Host &host, const char *line, gdb::LineFn emit, void *emit_ctx, Source source);
 
 // Подсказка при старте и на неизвестную команду.
 void help(gdb::LineFn emit, void *emit_ctx);

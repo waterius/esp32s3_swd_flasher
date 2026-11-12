@@ -21,6 +21,8 @@ struct FakeTarget {
   bool session;
   bool attach_fails;
   bool flash_fails;
+  bool erase_fails;
+  int erases;
   int starts, ends, flashes, commands, resumes;
   uint8_t flash[24 * 1024];
   uint8_t otp[128];
@@ -80,16 +82,24 @@ static bool t_flash(void *, const image::Image &im) {
   }
   return true;
 }
-static void t_command(void *, const char *line, gdb::LineFn emit, void *ectx) {
+static gdb::Outcome t_command(void *, const char *line, gdb::LineFn emit, void *ectx) {
   ft.commands++;
   if (strcmp(line, "swdp_scan") == 0) {
     if (t_start(nullptr, emit, ectx)) {
       emit(ectx, "# SWD: под сбросом");
       emit(ectx, "1 py32f002b");
     }
-    return;
+    return gdb::Outcome::None;
+  }
+  if (strcmp(line, "erase") == 0) {  // как commands: в сеансе — в нём
+    if (!ft.session && !t_start(nullptr, emit, ectx)) return gdb::Outcome::WriteFailed;
+    ft.erases++;
+    if (ft.erase_fails) return gdb::Outcome::WriteFailed;
+    memset(ft.flash, 0xFF, sizeof ft.flash);
+    return gdb::Outcome::WriteOk;
   }
   emit(ectx, "# неизвестная команда");
+  return gdb::Outcome::None;
 }
 
 static char printed[512];
@@ -358,6 +368,40 @@ static void test_replay_attach_fail(void) {
   TEST_ASSERT_EQUAL(0, ft.flashes);
 }
 
+// qRcmd с командой строкой → пакет
+static const char *monitor(const char *cmd) {
+  char hex[64], pkt[80];
+  size_t n = rsp::to_hex((const uint8_t *)cmd, strlen(cmd), hex);
+  snprintf(pkt, sizeof pkt, "qRcmd,%.*s", (int)n, hex);
+  return ask(pkt);
+}
+
+// spec: "gdb-server/Провал заливки виден PlatformIO/Только стирание"
+static void test_erase_only_then_kill_is_ok(void) {
+  ask("vAttach;1");
+  TEST_ASSERT_EQUAL_STRING("OK|", monitor("erase"));
+  TEST_ASSERT_EQUAL(1, ft.erases);
+  TEST_ASSERT_EQUAL_STRING("OK|", ask("vKill;1"));
+  TEST_ASSERT_FALSE(ft.session);
+}
+
+static void test_failed_erase_makes_kill_an_error(void) {
+  ft.erase_fails = true;
+  ask("vAttach;1");
+  monitor("erase");
+  TEST_ASSERT_EQUAL_STRING("E01|", ask("vKill;1"));
+}
+
+static void test_failed_erase_then_good_load_is_still_an_error(void) {
+  ft.erase_fails = true;
+  ask("vAttach;1");
+  monitor("erase");
+  ask("vFlashErase:08000000,80");
+  ask("vFlashWrite:08000000:abc");
+  TEST_ASSERT_EQUAL_STRING("OK|", ask("vFlashDone"));
+  TEST_ASSERT_EQUAL_STRING("E01|", ask("vKill;1"));
+}
+
 static void test_replay_close_mid_write_then_leave_ends_session(void) {
   replay(GDB_CLOSE_MID_WRITE, GDB_CLOSE_MID_WRITE_LEN);
   TEST_ASSERT_TRUE(ft.session);  // gdb пропал посреди записи
@@ -389,5 +433,8 @@ int main(void) {
   RUN_TEST(test_replay_load_failed);
   RUN_TEST(test_replay_attach_fail);
   RUN_TEST(test_replay_close_mid_write_then_leave_ends_session);
+  RUN_TEST(test_erase_only_then_kill_is_ok);
+  RUN_TEST(test_failed_erase_makes_kill_an_error);
+  RUN_TEST(test_failed_erase_then_good_load_is_still_an_error);
   return UNITY_END();
 }

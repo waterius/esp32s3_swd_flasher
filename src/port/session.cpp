@@ -143,11 +143,51 @@ bool w_write(void *, uint32_t addr, const uint8_t *d, uint32_t len, uint32_t *bu
 void w_reload(void *) { ops->reload_watchdog(); }
 bool w_read(void *, uint32_t addr, uint8_t *buf, uint32_t len) { return dap::read_bytes(addr, buf, len); }
 uint32_t w_now(void *) { return micros(); }
-const writer::Ops WRITE_OPS = {nullptr, w_unlock, w_lock, w_erase, w_write, w_reload, w_read, w_now};
+bool w_erase_main(void *, uint32_t addr, uint32_t *busy, const char **err) { return ops->erase_main(addr, busy, err); }
+const writer::Ops WRITE_OPS = {nullptr, w_unlock, w_lock, w_erase, w_write, w_reload, w_read, w_now, w_erase_main};
 
 bool plan_read(void *, uint32_t addr, uint8_t *buf, uint32_t len) { return dap::read_bytes(addr, buf, len); }
 
-void print_line(void *, const char *line) { print(line); }
+// Куда идут строки шага: вывод оснастки и, если emit не nullptr, ещё и gdb.
+struct Say {
+  gdb::LineFn emit;
+  void *ectx;
+};
+void say_line(void *ctx, const char *line) {
+  const Say *s = static_cast<const Say *>(ctx);
+  say(line, s->emit, s->ectx);
+}
+
+// Шаг с чипом (запись образа или полное стирание) — общие начало и конец: строка частоты,
+// отметка сброса; после — проверка сброса и строка «# итог:», которую разбирает страница.
+uint32_t step_begin(Say &to) {
+  flashed = true;
+  char line[160];
+  snprintf(line, sizeof line, "# %s", ops->timing_text());
+  say_line(&to, line);
+  dap::clear_reset_seen();
+  return millis();
+}
+
+// what — «прошивки» или «стирания»: «# сброс во время прошивки».
+bool step_end(Say &to, uint32_t t0, const char *what) {
+  bool ok = rep.result == writer::Result::Ok;
+  uint32_t dhcsr;
+  dap::read32(dap::DHCSR, &dhcsr);  // накопить S_RESET_ST
+  char reason[120], line[160];
+  if (dap::reset_seen()) {
+    snprintf(reason, sizeof reason, "сброс во время %s", what);
+    snprintf(line, sizeof line, "# %s", reason);
+    say_line(&to, line);
+    ok = false;
+  } else if (!ok) {
+    writer::failure_text(rep, reason, sizeof reason);
+  }
+  if (ok) snprintf(line, sizeof line, "# итог: ок, %lu мс", (unsigned long)(millis() - t0));
+  else snprintf(line, sizeof line, "# итог: ошибка, %s", reason);
+  say_line(&to, line);
+  return ok;
+}
 
 }  // namespace
 
@@ -221,10 +261,9 @@ bool write_reg(uint8_t index, uint32_t value) { return is_active && dap::write_c
 bool flash(const image::Image &img) {
   if (!is_active || !desc) return false;
   flashed = true;
-  uint32_t t0 = millis();
-  char line[160];
   plan::make(pl, img, *desc, plan_read, nullptr);
   if (!pl.ok) {
+    char line[160];
     if (pl.addr) snprintf(line, sizeof line, "# %s: 0x%08lX", pl.reason, (unsigned long)pl.addr);
     else snprintf(line, sizeof line, "# %s", pl.reason);
     print(line);
@@ -232,28 +271,20 @@ bool flash(const image::Image &img) {
     print(line);
     return false;
   }
-  snprintf(line, sizeof line, "# %s", ops->timing_text());
-  print(line);
-  dap::clear_reset_seen();
+  Say to{nullptr, nullptr};  // строки записи gdb не нужны: придут после сеанса
+  uint32_t t0 = step_begin(to);
   writer::run(rep, img, pl, *desc, WRITE_OPS);
-  writer::describe(rep, print_line, nullptr);
-  bool ok = rep.result == writer::Result::Ok;
-  uint32_t dhcsr;
-  dap::read32(dap::DHCSR, &dhcsr);  // накопить S_RESET_ST
-  if (dap::reset_seen()) {
-    print("# сброс во время прошивки");
-    ok = false;
-  }
-  if (ok) {
-    snprintf(line, sizeof line, "# итог: ок, %lu мс", (unsigned long)(millis() - t0));
-  } else {
-    char reason[120];
-    if (dap::reset_seen()) snprintf(reason, sizeof reason, "сброс во время прошивки");
-    else writer::failure_text(rep, reason, sizeof reason);
-    snprintf(line, sizeof line, "# итог: ошибка, %s", reason);
-  }
-  print(line);
-  return ok;
+  writer::describe(rep, say_line, &to);
+  return step_end(to, t0, "прошивки");
+}
+
+bool erase_main(gdb::LineFn emit, void *ectx) {
+  if (!is_active || !desc) return false;
+  Say to{emit, ectx};
+  uint32_t t0 = step_begin(to);
+  writer::erase_main(rep, *desc, WRITE_OPS);
+  writer::describe_erase(rep, say_line, &to);
+  return step_end(to, t0, "стирания");
 }
 
 void reset_board() {

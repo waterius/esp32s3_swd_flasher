@@ -31,10 +31,11 @@ bool stop(Report &r, Result result, uint32_t addr, const chip::Region *region, c
   return false;
 }
 
-bool all_erased(const uint8_t *p, uint32_t len) {
-  for (uint32_t i = 0; i < len; i++)
-    if (p[i] != 0xFF) return false;
-  return true;
+// Номер первого байта не 0xFF; len — все стёрты.
+uint32_t first_not_erased(const uint8_t *p, uint32_t len) {
+  uint32_t i = 0;
+  while (i < len && p[i] == 0xFF) i++;
+  return i;
 }
 
 // Пишет единицы плана; false — остановились, причина в r.
@@ -56,7 +57,7 @@ bool write_units(Report &r, const image::Image &img, const plan::Plan &pl, const
       if (u.len > MAX_UNIT || !ops.read(ops.ctx, u.addr, readback, u.len))
         return stop(r, Result::ReadFailed, u.addr, u.region, nullptr);
       // недостёртая единица плюс новые байты могут дать замок — не пишем (спека swd-flash)
-      if (!all_erased(readback, u.len)) return stop(r, Result::NotErased, u.addr, u.region, nullptr);
+      if (first_not_erased(readback, u.len) < u.len) return stop(r, Result::NotErased, u.addr, u.region, nullptr);
     }
     if (!ops.write_unit(ops.ctx, u.addr, u.data, u.len, &busy, &err))
       return stop(r, Result::WriteFailed, u.addr, u.region, err);
@@ -81,6 +82,18 @@ bool verify(Report &r, const image::Image &img, const plan::Plan &pl, const Ops 
   return true;
 }
 
+// Вся область — 0xFF; иначе стоп с адресом первого другого байта. Читает кусками буфера.
+bool verify_erased(Report &r, const chip::Region &reg, const Ops &ops) {
+  for (uint32_t off = 0; off < reg.size; off += MAX_UNIT) {
+    uint32_t addr = reg.start + off;
+    uint32_t len = reg.size - off < MAX_UNIT ? reg.size - off : MAX_UNIT;
+    if (!ops.read(ops.ctx, addr, readback, len)) return stop(r, Result::ReadFailed, addr, &reg, nullptr);
+    uint32_t k = first_not_erased(readback, len);
+    if (k < len) return stop(r, Result::NotErased, addr + k, &reg, nullptr);
+  }
+  return true;
+}
+
 // 3500 мкс → «3,5»
 void ms1(char *buf, size_t size, uint32_t us) {
   uint32_t tenths = (us + 50) / 100;
@@ -90,6 +103,34 @@ void ms1(char *buf, size_t size, uint32_t us) {
 unsigned long ms0(uint32_t us) { return (us + 500) / 1000; }
 
 }  // namespace
+
+void erase_main(Report &out, const chip::Desc &desc, const Ops &ops) {
+  memset(&out, 0, sizeof out);
+  out.result = Result::Ok;
+  const chip::Region *main = chip::main_region(desc);
+  if (!main) {
+    stop(out, Result::NoMainRegion, 0, nullptr, nullptr);
+    return;
+  }
+  const char *err = nullptr;
+  if (!ops.unlock(ops.ctx, &err)) {
+    stop(out, Result::UnlockFailed, 0, nullptr, err);
+    return;
+  }
+  uint32_t busy = 0;
+  bool ok = ops.erase_main(ops.ctx, main->start, &busy, &err);
+  ops.lock(ops.ctx);  // при любом исходе
+  if (!ok) {
+    stop(out, Result::MainEraseFailed, main->start, main, err);
+    return;
+  }
+  out.main_erase_us = busy;
+  out.out_of_datasheet = busy > desc.main_erase_max_us;
+  ops.reload_watchdog(ops.ctx);
+  uint32_t t0 = ops.now_us(ops.ctx);
+  verify_erased(out, *main, ops);
+  out.verify_us = ops.now_us(ops.ctx) - t0;
+}
 
 void run(Report &out, const image::Image &img, const plan::Plan &pl, const chip::Desc &desc,
          const Ops &ops) {
@@ -135,6 +176,14 @@ void failure_text(const Report &r, char *buf, size_t size) {
     case Result::Mismatch:
       snprintf(buf, size, "сверка: расхождение по 0x%08lX", (unsigned long)r.addr);
       break;
+    case Result::MainEraseFailed:
+      // WRPERR при полном стирании — защита записи или Load flash (спека swd-flash)
+      snprintf(buf, size, "полное стирание невозможно: %s",
+               r.detail && strcmp(r.detail, "WRPERR") == 0 ? "защита записи" : (r.detail ? r.detail : ""));
+      break;
+    case Result::NoMainRegion:
+      snprintf(buf, size, "%s", "полное стирание: у чипа нет основной flash");
+      break;
   }
 }
 
@@ -169,6 +218,24 @@ void describe(const Report &r, LineFn emit, void *ctx) {
   if (r.out_of_datasheet) emit(ctx, "# время записи вне даташита");
   if (r.result == Result::Ok) {
     snprintf(line, sizeof line, "# сверка: %lu мс", ms0(r.verify_us));
+  } else {
+    char reason[120];
+    failure_text(r, reason, sizeof reason);
+    snprintf(line, sizeof line, "# %s", reason);
+  }
+  emit(ctx, line);
+}
+
+void describe_erase(const Report &r, LineFn emit, void *ctx) {
+  char line[160], a[16];
+  if (r.main_erase_us) {
+    ms1(a, sizeof a, r.main_erase_us);
+    snprintf(line, sizeof line, "# полное стирание: %s мс", a);
+    emit(ctx, line);
+  }
+  if (r.out_of_datasheet) emit(ctx, "# время стирания вне даташита");
+  if (r.result == Result::Ok) {
+    snprintf(line, sizeof line, "# проверка 0xFF: %lu мс", ms0(r.verify_us));
   } else {
     char reason[120];
     failure_text(r, reason, sizeof reason);

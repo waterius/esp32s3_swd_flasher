@@ -12,4 +12,10 @@ const Region *find_region(const Desc &desc, uint32_t addr, uint32_t len) {
   return nullptr;
 }
 
+const Region *main_region(const Desc &desc) {
+  for (uint8_t i = 0; i < desc.region_count; i++)
+    if (desc.regions[i].main) return &desc.regions[i];
+  return nullptr;
+}
+
 }  // namespace chip

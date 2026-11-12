@@ -141,6 +141,14 @@ static void test_chip_is_found_by_name(void) {
   TEST_ASSERT_NULL(chips::find("stm32f103"));
 }
 
+static void test_main_region_is_flash(void) {
+  const chip::Region *m = chip::main_region(chips::py32f002b);
+  TEST_ASSERT_NOT_NULL(m);
+  TEST_ASSERT_EQUAL_STRING("flash", m->name);
+  TEST_ASSERT_EQUAL_HEX32(0x08000000, m->start);
+  TEST_ASSERT_EQUAL_UINT32(24 * 1024, m->size);
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_otp_identical_is_skipped);
@@ -156,5 +164,6 @@ int main(void) {
   RUN_TEST(test_timing_follows_factory_hsi_code);
   RUN_TEST(test_find_region_bounds);
   RUN_TEST(test_chip_is_found_by_name);
+  RUN_TEST(test_main_region_is_flash);
   return UNITY_END();
 }

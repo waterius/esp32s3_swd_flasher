@@ -71,12 +71,16 @@ bool t_wreg(void *, uint8_t i, uint32_t v) { return session::write_reg(i, v); }
 bool t_flash(void *, const image::Image &im) { return session::flash(im); }
 void t_info(void *, gdb::LineFn emit, void *ectx) { session::info(emit, ectx); }
 void t_reset(void *) { session::reset_board(); }
+bool t_erase(void *, gdb::LineFn emit, void *ectx) {
+  if (emit == console::Console::emit) emit = nullptr;  // в вывод оснастки сессия пишет сама
+  return session::erase_main(emit, ectx);
+}
 
-const commands::Host HOST = {nullptr, get_chip, set_chip, t_active, t_start, t_end,
-                             t_info,  t_reset,  get_baud, set_baud};
+const commands::Host HOST = {nullptr, get_chip, set_chip, t_active, t_start,  t_end,
+                             t_info,  t_erase,  t_reset,  get_baud, set_baud};
 
-void t_command(void *, const char *line, gdb::LineFn emit, void *ectx) {
-  commands::run(HOST, line, emit, ectx, commands::Source::Gdb);
+gdb::Outcome t_command(void *, const char *line, gdb::LineFn emit, void *ectx) {
+  return commands::run(HOST, line, emit, ectx, commands::Source::Gdb);
 }
 void t_print(void *, const char *line) { print(line); }
 

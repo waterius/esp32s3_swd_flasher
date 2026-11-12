@@ -25,7 +25,7 @@ bool read32(uint32_t addr, uint32_t *value);
 bool write32(uint32_t addr, uint32_t value);
 bool read_block(uint32_t addr, uint32_t *words, uint32_t count);
 bool write_block(uint32_t addr, const uint32_t *words, uint32_t count);
-// Байты с любого адреса: читает слова, которые их покрывают.
+// Байты с любого адреса и любой длины: читает покрывающие их слова кусками по 0x800 Б.
 bool read_bytes(uint32_t addr, uint8_t *buf, uint32_t len);
 
 // Регистры ядра: 0–12 r0–r12, 13 sp, 14 lr, 15 pc, 16 xpsr — номера DCRSR.

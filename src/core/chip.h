@@ -18,6 +18,7 @@ struct Region {
   bool read_before_write;  // читать единицу чипа до решения (USER OTP)
   bool check_erase;        // после стирания убедиться, что всё 0xFF (USER OTP)
   Kind kind;               // вид для карты памяти gdb
+  bool main;               // основная flash: её целиком стирает команда erase (web-flash-page design §8)
 };
 
 enum class Decision : uint8_t { Write, Skip, Refuse };
@@ -53,10 +54,15 @@ struct Desc {
   TimingFn timing;  // nullptr — чип загрузки таймингов не требует
   // время стирания и записи единицы по даташиту, мкс
   uint32_t erase_typ_us, erase_max_us, write_typ_us, write_max_us;
+  // наибольшее время полного стирания основной области (команда erase) по даташиту, мкс
+  uint32_t main_erase_max_us;
 };
 
 // Область записи (Flash с единицей стирания), целиком содержащая [addr, addr + len),
 // или nullptr.
 const Region *find_region(const Desc &desc, uint32_t addr, uint32_t len);
+
+// Основная flash чипа (отметка main) или nullptr.
+const Region *main_region(const Desc &desc);
 
 }  // namespace chip

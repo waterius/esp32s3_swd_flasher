@@ -27,7 +27,7 @@ static bool t_read(void *, uint32_t, uint8_t *buf, uint32_t len) {
 static bool t_rreg(void *, uint8_t, uint32_t *v) { return *v = 0, true; }
 static bool t_wreg(void *, uint8_t, uint32_t) { return true; }
 static bool t_flash(void *, const image::Image &) { return true; }
-static void t_command(void *, const char *, gdb::LineFn, void *) {}
+static gdb::Outcome t_command(void *, const char *, gdb::LineFn, void *) { return gdb::Outcome::None; }
 static void t_print(void *, const char *) {}
 static const gdb::Target TARGET = {nullptr, t_chip, t_active, t_start,   t_end,  t_read,
                                    t_rreg,  t_wreg, t_flash,  t_command, t_print};

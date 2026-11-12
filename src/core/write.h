@@ -20,11 +20,23 @@ struct Ops {
   bool (*write_unit)(void *ctx, uint32_t addr, const uint8_t *data, uint32_t len,
                      uint32_t *busy_us, const char **err);
   void (*reload_watchdog)(void *ctx);
-  bool (*read)(void *ctx, uint32_t addr, uint8_t *buf, uint32_t len);
+  bool (*read)(void *ctx, uint32_t addr, uint8_t *buf, uint32_t len);  // len до 4096 Б
   uint32_t (*now_us)(void *ctx);
+  // Стереть всю основную область одной операцией (команда erase); addr — её начало.
+  bool (*erase_main)(void *ctx, uint32_t addr, uint32_t *busy_us, const char **err);
 };
 
-enum class Result : uint8_t { Ok, UnlockFailed, EraseFailed, NotErased, WriteFailed, ReadFailed, Mismatch };
+enum class Result : uint8_t {
+  Ok,
+  UnlockFailed,
+  EraseFailed,
+  NotErased,
+  WriteFailed,
+  ReadFailed,
+  Mismatch,
+  MainEraseFailed,  // чип отказал в полном стирании
+  NoMainRegion,     // у чипа нет отметки «основная»
+};
 
 struct RegionStats {
   const chip::Region *region;
@@ -43,15 +55,21 @@ struct Report {
   RegionStats regions[image::MAX_REGIONS];
   uint8_t region_count;
   uint32_t verify_us;
+  uint32_t main_erase_us;  // полное стирание: сколько чип был занят
   bool out_of_datasheet;  // время стирания или записи больше наибольшего по даташиту
 };
 
 void run(Report &out, const image::Image &img, const plan::Plan &pl, const chip::Desc &desc,
          const Ops &ops);
 
+// Полное стирание основной flash (web-flash-page design §8): разблокировать, стереть, запереть,
+// прочитать всю основную область и убедиться, что всё 0xFF. Остальные области не трогает.
+void erase_main(Report &out, const chip::Desc &desc, const Ops &ops);
+
 // Строки «# …» для человека: шаги и время, предупреждение, сверка или причина.
 using LineFn = void (*)(void *ctx, const char *line);
 void describe(const Report &r, LineFn emit, void *ctx);
+void describe_erase(const Report &r, LineFn emit, void *ctx);
 
 // Причина неудачи без «# »: «ошибка записи: 0x08001000, WRPERR». Для Ok — пустая строка.
 void failure_text(const Report &r, char *buf, size_t size);
