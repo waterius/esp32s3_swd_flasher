@@ -8,7 +8,7 @@ namespace chip {
 
 enum class Kind : uint8_t { Flash, Ram };
 
-// Область памяти чипа: куда оснастка вправе писать (Flash) или что gdb может читать (Ram).
+// Область памяти чипа: куда программатор вправе писать (Flash) или что gdb может читать (Ram).
 struct Region {
   const char *name;   // в строках шагов: «# otp: совпадает»
   const char *title;  // в сообщениях: «OTP не стёрлась»

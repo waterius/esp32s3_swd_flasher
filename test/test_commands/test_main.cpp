@@ -1,4 +1,4 @@
-// Команды оснастки: одни и те же строкой и через monitor (design §11).
+// Команды программатора: одни и те же строкой и через monitor (design §11).
 #include <stdio.h>
 #include <string.h>
 #include <unity.h>

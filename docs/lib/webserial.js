@@ -1,9 +1,9 @@
-// Порт оснастки на Web Serial (design §4): выбор порта с VID Espressif, открытие на 115 200 с
+// Порт программатора на Web Serial (design §4): выбор порта с VID Espressif, открытие на 115 200 с
 // поднятыми DTR и RTS, чтение и запись потоками, закрытие с отпусканием потоков. Протокол gdb
 // не знает — его ведёт flasher.js.
 //
 // Линии DTR и RTS: открытие поднимает обе сразу — переход (0,0) → (1,1), закрытие опускает обе
-// сразу. Такие переходы не перезагружают оснастку в загрузчик ESP (Arduino-ESP32, USBCDC.cpp);
+// сразу. Такие переходы не перезагружают программатор в загрузчик ESP (Arduino-ESP32, USBCDC.cpp);
 // скорость 1 200 и другие сочетания линий страница не задаёт.
 
 export const ESPRESSIF_VID = 0x303a;
@@ -14,7 +14,7 @@ export function serialAvailable() {
   return typeof navigator !== 'undefined' && 'serial' in navigator;
 }
 
-/** Спросить человека порт оснастки. Отказ человека — null. */
+/** Спросить человека порт программатора. Отказ человека — null. */
 export async function choosePort() {
   try {
     return await navigator.serial.requestPort({ filters: [{ usbVendorId: ESPRESSIF_VID }] });
@@ -24,7 +24,7 @@ export async function choosePort() {
   }
 }
 
-/** Порт оснастки поверх SerialPort — реализация протокола из flasher.js. */
+/** Порт программатора поверх SerialPort — реализация протокола из flasher.js. */
 export class WebSerialPort {
   constructor(serial) {
     this.serial = serial;

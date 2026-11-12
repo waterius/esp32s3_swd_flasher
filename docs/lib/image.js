@@ -1,5 +1,5 @@
 // Образ из нескольких файлов Intel HEX: противоречия между файлами, проверка по карте памяти
-// оснастки, блоки для vFlashErase и куски для vFlashWrite (design §3, §5). Порт не знает.
+// программатора, блоки для vFlashErase и куски для vFlashWrite (design §3, §5). Порт не знает.
 
 import { parseIhex } from './ihex.js';
 
@@ -79,7 +79,7 @@ export function buildImage(files, map) {
     for (const r of f.ranges) {
       for (let a = r.start; a < r.end; ) {
         const reg = flashRegionOf(map, a);
-        if (!reg) throw new ImageError(`${f.name}: адрес ${hex32(a)} вне карты памяти оснастки`);
+        if (!reg) throw new ImageError(`${f.name}: адрес ${hex32(a)} вне карты памяти программатора`);
         a = Math.min(r.end, reg.start + reg.length);
       }
     }

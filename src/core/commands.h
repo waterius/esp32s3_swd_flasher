@@ -1,4 +1,4 @@
-// Команды оснастки: help, chip, info, erase, reset, baud и, через monitor, swdp_scan (design §11).
+// Команды программатора: help, chip, info, erase, reset, baud и, через monitor, swdp_scan (design §11).
 // Один обработчик для строки в текстовом режиме и для monitor в gdb — одинаковые ответы.
 #pragma once
 #include <stdint.h>

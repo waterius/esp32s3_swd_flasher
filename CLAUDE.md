@@ -2,13 +2,13 @@
 
 ## Назначение
 
-`esp32s3_swd_flasher` — прошивка **оснастки**: ESP32-S3 Super Mini сама пишет микроконтроллер на
-плате по SWD и отвечает gdb как отладчик Black Magic Probe. Через неё шьют из PlatformIO штатной
+`jaffa_flasher` — прошивка **программатора Jaffa Flasher** на ESP32-S3 Super Mini: он сам пишет микроконтроллер
+на плате по SWD и отвечает gdb как отладчик Black Magic Probe. Через него шьют из PlatformIO штатной
 командой (`upload_protocol = blackmagic`) и со страницы в браузере (`docs/`, change
 `web-flash-page`). Поддержан один чип — PY32F002B.
 
-**Оснастка ничего не знает об изделиях** (БТ/swd-flash-py32f002b/2): ни их имён, ни раскладки
-памяти, ни форматов данных. Она пишет присланные байты по их адресам. В код, тесты, примеры и
+**Программатор ничего не знает об изделиях** (БТ/swd-flash-py32f002b/2): ни их имён, ни раскладки
+памяти, ни форматов данных. Он пишет присланные байты по их адресам. В код, тесты, примеры и
 документы этого репозитория сведения о конкретных изделиях не попадают.
 
 План и решения — `openspec/changes/swd-flash-py32f002b/` (после архивации — `openspec/specs/`):
@@ -16,7 +16,7 @@
 
 ## Железо и первоисточники
 
-- Оснастка: ESP32-S3 Super Mini, ноги — `src/pins.h` (design §2). Плата должна питаться от
+- Программатор: ESP32-S3 Super Mini, ноги — `src/pins.h` (design §2). Плата должна питаться от
   3,0–3,6 В.
 - Факты о PY32F002B, протоколе gdb и USB брать из `datasheets/README.md`, а не по памяти.
 
@@ -25,8 +25,8 @@
 `pio` — `~/.platformio/penv/bin/pio`.
 
 ```sh
-pio run -e esp32s3              # сборка оснастки
-pio run -e esp32s3 -t upload    # заливка оснастки по её USB
+pio run -e esp32s3              # сборка программатора
+pio run -e esp32s3 -t upload    # заливка программатора по его USB
 pio test -e native              # юнит-тесты чистого кода на ПК
 pio test -e native -f test_plan # один набор
 python3 -m pytest test/spec_coverage -s -q   # покрытие сценариев спек тестами
@@ -49,9 +49,9 @@ python3 -m http.server -d docs 8000          # страница на http://loca
 - `src/main.cpp` — USB, DTR, NVS, лог UART1, команды. Единственное место, где всё встречается.
 - `docs/` — страница прошивки (change `web-flash-page`), GitHub Pages из `master`, `/docs`. Обычные
   ES-модули без сборки и внешних файлов: `lib/ihex.js`, `lib/image.js`, `lib/rsp.js` — чистый код;
-  `lib/flasher.js` — разговор с оснасткой через протокол «порт оснастки»; `lib/webserial.js` — порт
-  на Web Serial; `app.js` — экран, все надписи в объекте `T`. Тесты — `test/web/` на поддельной
-  оснастке `fake_flasher.mjs`; меняя пакеты или строки `# ` в прошивке, правьте и её. Страница
+  `lib/flasher.js` — разговор с программатором через протокол «порт программатора»; `lib/webserial.js` — порт
+  на Web Serial; `app.js` — экран, все надписи в объекте `T`. Тесты — `test/web/` на поддельном
+  программаторе `fake_flasher.mjs`; меняя пакеты или строки `# ` в прошивке, правьте и его. Страница
   делает запросы только за своими файлами — ни CDN, ни шрифтов, ни счётчиков.
 - Зависимости: `main` → {`core/console`, `port/session`}; `port/session` → {`core/write`,
   `chips/*_ops`, `port/dap`}; `core/*` от `port/` не зависит (design §12).
@@ -74,7 +74,7 @@ static void test_lock_in_image_is_refused(void) { ... }
 
 Путь — дословно `<capability>/<Requirement>/<Scenario>`. В тестах `node:test` — так же, комментарием
 над `test(...)`. Сценарии «проверяется на плате» — в `MANUAL` файла
-`test/spec_coverage/spec_coverage_data.py` с протоколом `dev/board-checks.md` (оснастка) или
+`test/spec_coverage/spec_coverage_data.py` с протоколом `dev/board-checks.md` (программатор) или
 `dev/board-checks-web.md` (страница).
 
 ## Работа с git
@@ -85,4 +85,4 @@ static void test_lock_in_image_is_refused(void) { ... }
 
 ## Числа
 
-В выводе оснастки, документах и коде шестнадцатеричное число — всегда с `0x`.
+В выводе программатора, документах и коде шестнадцатеричное число — всегда с `0x`.

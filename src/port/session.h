@@ -11,7 +11,7 @@
 namespace session {
 
 struct Hooks {
-  void (*print)(const char *line);  // строка оснастки «# …» в вывод
+  void (*print)(const char *line);  // строка программатора «# …» в вывод
   void (*log_pause)();              // пересылку лога остановить, принятое отбрасывать
   void (*log_clear)();              // очистить приёмник лога — до отпускания NRST в конце
   void (*log_resume)();             // пересылку лога включить
@@ -19,7 +19,7 @@ struct Hooks {
 
 void begin(const Hooks &hooks);
 
-// Если оснастка перезапустилась посреди сеанса (отметка в RTC-памяти) — подключиться и
+// Если программатор перезапустился посреди сеанса (отметка в RTC-памяти) — подключиться и
 // завершить его, чтобы плата не осталась остановленной.
 void recover(const chip::Desc *desc);
 
@@ -33,7 +33,7 @@ bool read_reg(uint8_t index, uint32_t *value);
 bool write_reg(uint8_t index, uint32_t value);
 bool flash(const image::Image &img);
 // Полное стирание основной flash в идущем сеансе (команда erase): строки шагов и итог —
-// в вывод оснастки и, если emit не nullptr, ещё и туда.
+// в вывод программатора и, если emit не nullptr, ещё и туда.
 bool erase_main(gdb::LineFn emit, void *emit_ctx);
 
 // Импульс NRST 10 мс без SWD (команда reset).

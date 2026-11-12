@@ -1,4 +1,4 @@
-// Смысл пакетов gdb: оснастка отвечает как Black Magic Probe (design §9, таблица пакетов).
+// Смысл пакетов gdb: программатор отвечает как Black Magic Probe (design §9, таблица пакетов).
 // Работает через функции цели — на плате их даёт port/session, в тестах — поддельная цель.
 // Кадры — core/rsp, режимы порта — core/console.
 #pragma once
@@ -12,7 +12,7 @@ namespace gdb {
 
 using LineFn = void (*)(void *ctx, const char *line);
 
-// Что команда оснастки сделала с чипом: для ответа на vKill удачное erase — как удачная запись
+// Что команда программатора сделала с чипом: для ответа на vKill удачное erase — как удачная запись
 // (спека gdb-server, «Провал заливки виден PlatformIO»).
 enum class Outcome : uint8_t { None, WriteOk, WriteFailed };
 
@@ -21,7 +21,7 @@ struct Target {
   const chip::Desc *(*chip)(void *ctx);  // выбранный чип или nullptr
   bool (*session_active)(void *ctx);
   // Подключиться к плате и подготовить чип (design §4). Строки о подключении — в emit, если
-  // он не nullptr, иначе в вывод оснастки.
+  // он не nullptr, иначе в вывод программатора.
   bool (*start_session)(void *ctx, LineFn emit, void *emit_ctx);
   void (*end_session)(void *ctx);  // завершить по design §5: плата запускается
   bool (*read_mem)(void *ctx, uint32_t addr, uint8_t *buf, uint32_t len);
@@ -29,9 +29,9 @@ struct Target {
   bool (*read_reg)(void *ctx, uint8_t index, uint32_t *value);
   bool (*write_reg)(void *ctx, uint8_t index, uint32_t value);
   bool (*flash)(void *ctx, const image::Image &img);  // записать образ по design §8
-  // Команда оснастки, та же, что строкой в текстовом режиме (design §11).
+  // Команда программатора, та же, что строкой в текстовом режиме (design §11).
   Outcome (*command)(void *ctx, const char *line, LineFn emit, void *emit_ctx);
-  // Строка оснастки «# …» в вывод порта (он выйдет, когда порт освободится).
+  // Строка программатора «# …» в вывод порта (он выйдет, когда порт освободится).
   void (*print)(void *ctx, const char *line);
 };
 
