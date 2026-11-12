@@ -598,6 +598,7 @@
 | `core/write` | порядок записи, проверку стирания, стоп на первой неудаче, «запереть», сверку, время шагов | `core/plan`, функции чипа | SWD, регистры |
 | `core/rsp` | кадры `$…#xx`, контрольную сумму, экранирование `}`, hex | — | чип, gdb-пакеты |
 | `core/gdb` | смысл пакетов, сеанс gdb и его провал, карту памяти и описание регистров | `core/rsp`, `core/image`, `core/chip.h`, функции цели | SWD, USB |
+| `core/commands` | команды `help`, `chip`, `info`, `reset`, `baud`, `swdp_scan` — один обработчик для строки и `monitor` | `core/gdb` (тип строки), `chips/chips.h`, функции хозяина | SWD, USB, NVS |
 | `core/console` | режимы порта, «кто открыл порт», буфер вывода 4 КБ, `# пропущено`, строки `# ` с начала строки, 60 с тишины | `core/gdb`, функции «команда» и «часы» | SWD, USB |
 | `chips/py32f002b_desc` | данные PY32F002B и правило OTP | `core/chip.h` | SWD |
 | `port/swd` | биты, такты, чётность, `WAIT`, `FAULT`, DP/AP | `pins.h` | чип |
@@ -605,7 +606,7 @@
 | `chips/py32f002b_ops` | `RCC`, `DBGMCU`, контроллер flash, `LOCK`, второй рубеж OTP | `port/dap`, `core/plan` | gdb, команды |
 | `chips/chips.cpp` | таблицу поддержанных чипов | `chips/*` | — |
 | `port/session` | порядок сеанса (§4, §5), отметку в RTC, функции цели для `core/gdb` и функции чипа для `core/write` | `port/dap`, `core/write`, описание чипа | биты SWD, регистры чипа |
-| `main` | USB, DTR, NVS, лог UART1, команды | `core/console`, `port/session`, `chips/chips.cpp` | биты SWD, регистры чипа |
+| `main` | USB, DTR, NVS, лог UART1, функции хозяина для `core/commands` | `core/console`, `core/commands`, `port/session`, `chips/chips.cpp` | биты SWD, регистры чипа |
 
 - **Направление зависимостей (А3):**
   - `main` → {`core/console`, `port/session`};
@@ -617,7 +618,8 @@
 - `core/` и `chips/*_desc` собираются в окружении `native`. Тесты — `test/test_image`,
   `test/test_plan`, `test/test_write` на описании `py32f002b` и поддельном чипе, `test/test_rsp`,
   `test/test_gdb` на поддельной цели и записанных байтах, `test/test_console` на поддельных DTR,
-  часах и командах.
+  часах и командах, `test/test_commands` на поддельном хозяине. Команды вынесены из `main` в
+  `core/commands` при реализации, чтобы сценарии выбора чипа и скорости лога проверялись на ПК.
 - Ничто ниже `main` не знает о USB. Ничто, кроме `chips/*_ops`, не знает регистров чипа.
 
 ## Risks / Trade-offs
