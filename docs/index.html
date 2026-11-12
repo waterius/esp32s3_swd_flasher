@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Прошивка через оснастку</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <header class="top">
+      <h1 data-t="title"></h1>
+      <p class="lead" data-t="lead"></p>
+    </header>
+
+    <main>
+      <p id="no-serial" class="no-serial" hidden></p>
+
+      <section id="sec-connect" class="panel">
+        <h2 data-t="secConnect"></h2>
+        <div class="row">
+          <button id="connect" type="button" class="primary"></button>
+          <span id="status" class="status" role="status"></span>
+        </div>
+        <div class="row" id="chip-row">
+          <span data-t="chipLabel"></span>
+          <strong id="chip" class="mono"></strong>
+          <label class="sr" for="chip-select" data-t="chipSelect"></label>
+          <select id="chip-select"></select>
+          <button id="chip-set" type="button" data-t="chipSet"></button>
+        </div>
+      </section>
+
+      <section id="sec-flash" class="panel">
+        <h2 data-t="secFlash"></h2>
+        <div class="row">
+          <label class="file">
+            <input id="files" type="file" accept=".hex,.ihex" multiple />
+            <span data-t="chooseFiles"></span>
+          </label>
+          <span class="hint" data-t="filesHint"></span>
+        </div>
+        <ul id="file-list" class="files"></ul>
+        <label class="check">
+          <input id="erase-all" type="checkbox" />
+          <span data-t="eraseAll"></span>
+        </label>
+        <div class="row">
+          <button id="flash" type="button" class="primary" data-t="flash"></button>
+          <progress id="progress" max="1" value="0" hidden></progress>
+          <span id="phase" class="hint"></span>
+        </div>
+        <div id="result" class="result" hidden>
+          <p id="result-head" class="result-head"></p>
+          <pre id="result-lines" class="mono"></pre>
+        </div>
+      </section>
+
+      <section id="sec-memory" class="panel">
+        <h2 data-t="secMemory"></h2>
+        <div class="row">
+          <label>
+            <span data-t="region"></span>
+            <select id="region"></select>
+          </label>
+          <label>
+            <span data-t="address"></span>
+            <input id="addr" class="mono" size="12" spellcheck="false" autocomplete="off" value="0x1FFF0280" />
+          </label>
+          <label>
+            <span data-t="length"></span>
+            <input id="len" class="mono" size="7" spellcheck="false" autocomplete="off" value="128" />
+          </label>
+          <button id="read" type="button" data-t="read"></button>
+        </div>
+        <p class="hint" data-t="readHint"></p>
+        <pre id="dump" class="mono dump" hidden></pre>
+      </section>
+
+      <section id="sec-log" class="panel">
+        <div class="row between">
+          <h2 data-t="secLog"></h2>
+          <button id="clear" type="button" class="quiet" data-t="clear"></button>
+        </div>
+        <div id="log" class="log mono" role="log" aria-live="polite"></div>
+        <form id="cmd-form" class="row">
+          <label class="sr" for="cmd" data-t="cmdLabel"></label>
+          <input id="cmd" class="mono grow" spellcheck="false" autocomplete="off" />
+          <button id="send" type="submit" data-t="send"></button>
+        </form>
+        <p class="hint" data-t="cmdHint"></p>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <p data-t="privacy"></p>
+      <p><a href="https://github.com/waterius/esp32s3_swd_flasher" data-t="repo"></a></p>
+    </footer>
+  </body>
+</html>
