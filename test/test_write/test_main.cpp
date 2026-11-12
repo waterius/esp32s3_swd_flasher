@@ -11,7 +11,7 @@
 
 static image::Image img;
 static plan::Plan pl;
-static write::Report rep;
+static writer::Report rep;
 
 // Поддельный чип: память, контроллер flash с замком и подстроенные сбои.
 struct FakeChip {
@@ -77,7 +77,7 @@ static bool f_read(void *, uint32_t addr, uint8_t *buf, uint32_t len) {
 }
 static uint32_t f_now(void *) { return fc.clock_us += 100; }
 
-static const write::Ops OPS = {nullptr, f_unlock, f_lock, f_erase, f_write, f_reload, f_read, f_now};
+static const writer::Ops OPS = {nullptr, f_unlock, f_lock, f_erase, f_write, f_reload, f_read, f_now};
 
 static bool plan_read(void *, uint32_t addr, uint8_t *buf, uint32_t len) { return f_read(nullptr, addr, buf, len); }
 
@@ -94,7 +94,7 @@ void tearDown(void) {}
 static void run(void) {
   plan::make(pl, img, chips::py32f002b, plan_read, nullptr);
   TEST_ASSERT_TRUE_MESSAGE(pl.ok, pl.reason);
-  write::run(rep, img, pl, chips::py32f002b, OPS);
+  writer::run(rep, img, pl, chips::py32f002b, OPS);
 }
 
 // Строки, которые выдал describe, — одной строкой через «|».
@@ -105,7 +105,7 @@ static void collect(void *, const char *line) {
 }
 static const char *describe(void) {
   lines[0] = 0;
-  write::describe(rep, collect, nullptr);
+  writer::describe(rep, collect, nullptr);
   return lines;
 }
 
@@ -119,7 +119,7 @@ static void put(uint32_t addr, uint8_t value, uint32_t len) {
 static void test_written_pages_hold_image(void) {
   put(0x08000000, 0x42, 256);
   run();
-  TEST_ASSERT_EQUAL(write::Result::Ok, rep.result);
+  TEST_ASSERT_EQUAL(writer::Result::Ok, rep.result);
   TEST_ASSERT_EQUAL_HEX8(0x42, fc.flash[0]);
   TEST_ASSERT_EQUAL_HEX8(0x42, fc.flash[255]);
   TEST_ASSERT_EQUAL_HEX8(0x00, fc.flash[256]);  // соседняя страница не тронута
@@ -139,7 +139,7 @@ static void test_data_outside_image_survives(void) {
   memset(fc.flash + 0x3200, 0x5C, 128);  // страница 100
   put(0x08000000, 0x01, 128 * 10);       // страницы 0–9 — по 256 Б за раз
   run();
-  TEST_ASSERT_EQUAL(write::Result::Ok, rep.result);
+  TEST_ASSERT_EQUAL(writer::Result::Ok, rep.result);
   for (int i = 0; i < 128; i++) TEST_ASSERT_EQUAL_HEX8(0x5C, fc.flash[0x3200 + i]);
 }
 
@@ -150,14 +150,14 @@ static void test_write_protection_stops_at_first_page(void) {
   put(0x08001000, 0x22, 128);  // в нём
   put(0x08001080, 0x22, 128);  // после
   run();
-  TEST_ASSERT_EQUAL(write::Result::EraseFailed, rep.result);
+  TEST_ASSERT_EQUAL(writer::Result::EraseFailed, rep.result);
   TEST_ASSERT_EQUAL_HEX32(0x08001000, rep.addr);
   TEST_ASSERT_EQUAL(0, fc.erases_after_wrperr);
   TEST_ASSERT_EQUAL_HEX8(0x22, fc.flash[0xF80]);   // до него — записано
   TEST_ASSERT_EQUAL_HEX8(0x00, fc.flash[0x1080]);  // после — не тронуто
   TEST_ASSERT_NOT_NULL(strstr(describe(), "# ошибка записи: 0x08001000, WRPERR|"));
   char text[96];
-  write::failure_text(rep, text, sizeof text);
+  writer::failure_text(rep, text, sizeof text);
   TEST_ASSERT_EQUAL_STRING("ошибка записи: 0x08001000, WRPERR", text);
 }
 
@@ -173,7 +173,7 @@ static void test_otp_not_erased_is_not_written(void) {
   otp[1] = 0xFF;
   TEST_ASSERT_TRUE(img.write(0x1FFF0280, otp, 128));
   run();
-  TEST_ASSERT_EQUAL(write::Result::NotErased, rep.result);
+  TEST_ASSERT_EQUAL(writer::Result::NotErased, rep.result);
   TEST_ASSERT_EQUAL_HEX8(0xFF, fc.otp[0]);  // запись не начиналась
   TEST_ASSERT_EQUAL_HEX8(0xAA, fc.otp[1]);
   TEST_ASSERT_NOT_NULL(strstr(describe(), "# OTP не стёрлась: 0x1FFF0280|"));
@@ -184,7 +184,7 @@ static void test_mismatch_after_write_is_reported(void) {
   fc.corrupt_addr = 0x08000010;
   put(0x08000000, 0x80, 128);
   run();
-  TEST_ASSERT_EQUAL(write::Result::Mismatch, rep.result);
+  TEST_ASSERT_EQUAL(writer::Result::Mismatch, rep.result);
   TEST_ASSERT_EQUAL_HEX32(0x08000010, rep.addr);
   TEST_ASSERT_NOT_NULL(strstr(describe(), "# сверка: расхождение по 0x08000010|"));
 }
@@ -197,20 +197,20 @@ static void test_skipped_unit_is_verified_too(void) {
   // план ошибочно решил «совпадает» — чтение подвело, — сверка должна поймать
   for (uint16_t i = 0; i < img.unit_count(); i++)
     if (pl.action[i] == plan::Action::Write) pl.action[i] = plan::Action::Skip;
-  write::run(rep, img, pl, chips::py32f002b, OPS);
-  TEST_ASSERT_EQUAL(write::Result::Mismatch, rep.result);
+  writer::run(rep, img, pl, chips::py32f002b, OPS);
+  TEST_ASSERT_EQUAL(writer::Result::Mismatch, rep.result);
   TEST_ASSERT_EQUAL_HEX32(0x1FFF0280, rep.addr);
 }
 
 static void test_lock_after_run_and_second_run_unlocks_again(void) {
   put(0x08000000, 0x01, 128);
   run();
-  TEST_ASSERT_EQUAL(write::Result::Ok, rep.result);
+  TEST_ASSERT_EQUAL(writer::Result::Ok, rep.result);
   TEST_ASSERT_FALSE(fc.unlocked);
   img.reset(chips::py32f002b);
   TEST_ASSERT_TRUE(img.write(0x1FFF0280, fc.flash, 128));  // второй load в том же сеансе
   run();
-  TEST_ASSERT_EQUAL(write::Result::Ok, rep.result);
+  TEST_ASSERT_EQUAL(writer::Result::Ok, rep.result);
   TEST_ASSERT_EQUAL(2, fc.unlocks);
   TEST_ASSERT_EQUAL(2, fc.locks);
 }
@@ -219,7 +219,7 @@ static void test_lock_also_after_failure(void) {
   fc.wrperr_from = 0x08000000;
   put(0x08000000, 0x01, 128);
   run();
-  TEST_ASSERT_EQUAL(write::Result::EraseFailed, rep.result);
+  TEST_ASSERT_EQUAL(writer::Result::EraseFailed, rep.result);
   TEST_ASSERT_EQUAL(1, fc.locks);
 }
 
@@ -248,7 +248,7 @@ static void test_slow_erase_warns(void) {
   fc.erase_busy_us = 6200;  // больше наибольших 5,0 мс по DS
   put(0x08000000, 0x01, 128);
   run();
-  TEST_ASSERT_EQUAL(write::Result::Ok, rep.result);
+  TEST_ASSERT_EQUAL(writer::Result::Ok, rep.result);
   TEST_ASSERT_TRUE(rep.out_of_datasheet);
   TEST_ASSERT_NOT_NULL(strstr(describe(), "# время записи вне даташита|"));
 }

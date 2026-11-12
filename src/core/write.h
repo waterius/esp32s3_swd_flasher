@@ -8,7 +8,7 @@
 #include "core/image.h"
 #include "core/plan.h"
 
-namespace write {
+namespace writer {
 
 // Действия с чипом. busy_us — сколько чип был занят операцией (BSY), без передачи по SWD.
 // err — короткая причина от чипа: «WRPERR», «нет EOP», «BSY дольше 50 мс».
@@ -56,4 +56,4 @@ void describe(const Report &r, LineFn emit, void *ctx);
 // Причина неудачи без «# »: «ошибка записи: 0x08001000, WRPERR». Для Ok — пустая строка.
 void failure_text(const Report &r, char *buf, size_t size);
 
-}  // namespace write
+}  // namespace writer

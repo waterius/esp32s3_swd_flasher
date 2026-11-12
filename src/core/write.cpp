@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-namespace write {
+namespace writer {
 
 namespace {
 
@@ -177,4 +177,4 @@ void describe(const Report &r, LineFn emit, void *ctx) {
   emit(ctx, line);
 }
 
-}  // namespace write
+}  // namespace writer
