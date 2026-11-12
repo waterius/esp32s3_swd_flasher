@@ -1,7 +1,13 @@
+# Сборка и тесты: PlatformIO, pytest, Node
 .pio/
+.vscode/
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/
+
 .env*
 .claude/settings.local.json
-__pycache__/
 .DS_Store
 
 # Образы чужих прошивок и данных для USER OTP в git не кладём; исключение — нейтральные
