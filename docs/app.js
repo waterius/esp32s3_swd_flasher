@@ -5,7 +5,7 @@
 import { Flasher, hexDump } from './lib/flasher.js';
 import { serialAvailable, choosePort, WebSerialPort } from './lib/webserial.js';
 import { parseFile, hex32, fileTags } from './lib/image.js';
-import { SPEEDS, DATA_BITS, PARITY, STOP_BITS, DEFAULT_UART, baudCommand, terminalControls, LogView } from './lib/terminal.js';
+import { SPEEDS, DATA_BITS, PARITY, STOP_BITS, DEFAULT_UART, baudCommand, terminalControls, LogView, stamp } from './lib/terminal.js';
 
 // Спонсор — одна ссылка для шапки и подвала (jaffa-flasher-page design §2).
 const SPONSOR_URL = 'https://waterius.ru/?utm_source=jaffa_flasher&utm_medium=web&utm_campaign=jaffa_flasher';
@@ -66,6 +66,8 @@ const T = {
   secLog: 'Терминал',
   logOn: 'Включить лог',
   logOff: 'Выключить лог',
+  pause: 'Пауза',
+  resume: 'Продолжить',
   uartSpeed: 'Скорость',
   uartBits: 'Биты',
   uartParity: 'Чётность',
@@ -109,6 +111,7 @@ const el = {
   clear: $('clear'),
   dumpClear: $('dump-clear'),
   logToggle: $('log-toggle'),
+  logPause: $('log-pause'),
   uartSpeed: $('uart-speed'),
   uartBits: $('uart-bits'),
   uartParity: $('uart-parity'),
@@ -162,6 +165,7 @@ function render() {
   for (const s of UART) s.disabled = !term.uart;
   el.logToggle.disabled = !term.logToggle;
   el.logToggle.textContent = logView.on ? T.logOff : T.logOn;
+  el.logPause.textContent = logView.paused ? T.resume : T.pause;
   el.cmd.disabled = el.send.disabled = !term.command;
   renderRegions();
   renderFiles();
@@ -188,9 +192,9 @@ function setStatus(text, bad = false) {
 // ---------------------------------------------------------------- лог
 
 function logLine(text, cls) {
-  const stick = el.log.scrollTop + el.log.clientHeight >= el.log.scrollHeight - 4;
+  const stick = logView.follow(el.log.scrollTop + el.log.clientHeight >= el.log.scrollHeight - 4);
   const div = document.createElement('div');
-  div.textContent = text;
+  div.textContent = stamp(new Date()) + text;
   if (cls) div.className = cls;
   el.log.append(div);
   while (el.log.childElementCount > LOG_LINES) el.log.firstElementChild.remove();
@@ -203,6 +207,11 @@ const logView = new LogView(logLine);
 el.clear.addEventListener('click', () => el.log.replaceChildren());
 el.logToggle.addEventListener('click', () => {
   logView.toggle();
+  render();
+});
+// Пауза прокрутки: строки идут, экран стоит; «Продолжить» — к последней строке.
+el.logPause.addEventListener('click', () => {
+  if (!logView.pause()) el.log.scrollTop = el.log.scrollHeight;
   render();
 });
 
