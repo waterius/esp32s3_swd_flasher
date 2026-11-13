@@ -2,7 +2,7 @@
 """Записывает байты, которые шлёт gdb из тулчейна PlatformIO, — фикстуры для test/test_gdb.
 
 Заглушка на ПК отвечает gdb так, как ответит программатор по таблице design §9
-(openspec/changes/swd-flash-py32f002b/design.md), с картой памяти py32f002b. gdb
+(openspec/changes/archive/2026-11-13-swd-flash-py32f002b/design.md), с картой памяти py32f002b. gdb
 подключается к ней по TCP: протокол тот же, что по USB-порту. Всё, что gdb прислал,
 вместе с `+`, пишется в test/fixtures/gdb_<сценарий>.h массивом байтов.
 

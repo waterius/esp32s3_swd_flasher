@@ -40,5 +40,5 @@
 
 - [x] 4.1 `pio test -e native`, `pio run -e esp32s3`, `node --test "test/web/*.test.mjs"`,
   `pytest test/spec_coverage` — всё зелёное.
-- [ ] 4.2 На плате (`dev/board-checks-web.md`): подключить, увидеть метку «USER OTP» у файла OTP,
+- [x] 4.2 На плате (`dev/board-checks-web.md`): подключить, увидеть метку «USER OTP» у файла OTP,
   прошить, сменить формат лога, выключить и включить лог, очистить экраны.
