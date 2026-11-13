@@ -96,5 +96,5 @@
 
 ## 8. После мержа
 
-- [ ] 8.1 После архивации `swd-flash-py32f002b`: БТ и термины — в `openspec/business/`;
+- [x] 8.1 После архивации `swd-flash-py32f002b`: БТ и термины — в `openspec/business/`;
   `/opsx:archive web-flash-page`.

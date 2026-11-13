@@ -188,6 +188,6 @@ arm-none-eabi-gdb -nx --batch -ex "target extended-remote COM5" -ex "monitor swd
 
 ## Устройство
 
-План и решения — `openspec/changes/swd-flash-py32f002b/` (design §1–§12), страница прошивки и
-`erase` — `openspec/changes/web-flash-page/`, правила для
+Требования — `openspec/specs/`. Решения — `openspec/changes/archive/2026-11-13-swd-flash-py32f002b/` (design §1–§12), страница
+прошивки и `erase` — `openspec/changes/archive/2026-11-13-web-flash-page/` и `…-jaffa-flasher-page/`, правила для
 разработчика — `CLAUDE.md`, первоисточники — `datasheets/README.md`.
