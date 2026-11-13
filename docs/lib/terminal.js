@@ -27,28 +27,38 @@ export function terminalControls({ connected, busy, working }) {
 
 /**
  * Метка времени строки терминала по часам ПК (у платы часов нет, log-timestamps design §1):
- * «2026-11-13 14-05-33.123: ». Местное время — то, что у человека на часах.
+ * «2026-11-13 14:05:33.123: ». Местное время — то, что у человека на часах.
  */
 export function stamp(date) {
   const p = (n, w = 2) => String(n).padStart(w, '0');
   return (
     `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())} ` +
-    `${p(date.getHours())}-${p(date.getMinutes())}-${p(date.getSeconds())}.${p(date.getMilliseconds(), 3)}: `
+    `${p(date.getHours())}:${p(date.getMinutes())}:${p(date.getSeconds())}.${p(date.getMilliseconds(), 3)}: `
   );
 }
 
 /**
  * Лог на экране: пока выключен, строки не выводятся и не копятся (design §8).
  * show(line) вызывает вывод только при включённом логе.
+ * Пауза — только прокрутка: строки выводятся, но экран стоит (log-timestamps design §3).
  */
 export class LogView {
   constructor(print) {
     this.print = print;
     this.on = true;
+    this.paused = false;
   }
   toggle() {
     this.on = !this.on;
     return this.on;
+  }
+  pause() {
+    this.paused = !this.paused;
+    return this.paused;
+  }
+  /** Прокручивать ли к новой строке: не на паузе и экран был внизу. */
+  follow(atBottom) {
+    return !this.paused && atBottom;
   }
   show(line, cls) {
     if (this.on) this.print(line, cls);

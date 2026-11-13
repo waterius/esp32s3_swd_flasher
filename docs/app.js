@@ -66,6 +66,8 @@ const T = {
   secLog: 'Терминал',
   logOn: 'Включить лог',
   logOff: 'Выключить лог',
+  pause: 'Пауза',
+  resume: 'Продолжить',
   uartSpeed: 'Скорость',
   uartBits: 'Биты',
   uartParity: 'Чётность',
@@ -109,6 +111,7 @@ const el = {
   clear: $('clear'),
   dumpClear: $('dump-clear'),
   logToggle: $('log-toggle'),
+  logPause: $('log-pause'),
   uartSpeed: $('uart-speed'),
   uartBits: $('uart-bits'),
   uartParity: $('uart-parity'),
@@ -162,6 +165,7 @@ function render() {
   for (const s of UART) s.disabled = !term.uart;
   el.logToggle.disabled = !term.logToggle;
   el.logToggle.textContent = logView.on ? T.logOff : T.logOn;
+  el.logPause.textContent = logView.paused ? T.resume : T.pause;
   el.cmd.disabled = el.send.disabled = !term.command;
   renderRegions();
   renderFiles();
@@ -188,7 +192,7 @@ function setStatus(text, bad = false) {
 // ---------------------------------------------------------------- лог
 
 function logLine(text, cls) {
-  const stick = el.log.scrollTop + el.log.clientHeight >= el.log.scrollHeight - 4;
+  const stick = logView.follow(el.log.scrollTop + el.log.clientHeight >= el.log.scrollHeight - 4);
   const div = document.createElement('div');
   div.textContent = stamp(new Date()) + text;
   if (cls) div.className = cls;
@@ -203,6 +207,11 @@ const logView = new LogView(logLine);
 el.clear.addEventListener('click', () => el.log.replaceChildren());
 el.logToggle.addEventListener('click', () => {
   logView.toggle();
+  render();
+});
+// Пауза прокрутки: строки идут, экран стоит; «Продолжить» — к последней строке.
+el.logPause.addEventListener('click', () => {
+  if (!logView.pause()) el.log.scrollTop = el.log.scrollHeight;
   render();
 });
 

@@ -66,7 +66,21 @@ test('соседние файлы без общих адресов не пере
 });
 
 // spec: "web-flash/Терминал/Метка времени строки"
-test('метка времени строки — «ГГГГ-ММ-ДД чч-мм-сс.ммм: » по местным часам ПК', () => {
-  assert.equal(stamp(new Date(2026, 10, 3, 4, 5, 6, 7)), '2026-11-03 04-05-06.007: ');
-  assert.equal(stamp(new Date(2026, 11, 31, 23, 59, 59, 999)), '2026-12-31 23-59-59.999: ');
+test('метка времени строки — «ГГГГ-ММ-ДД чч:мм:сс.ммм: » по местным часам ПК', () => {
+  assert.equal(stamp(new Date(2026, 10, 3, 4, 5, 6, 7)), '2026-11-03 04:05:06.007: ');
+  assert.equal(stamp(new Date(2026, 11, 31, 23, 59, 59, 999)), '2026-12-31 23:59:59.999: ');
+});
+
+// spec: "web-flash/Терминал/Пауза прокрутки"
+test('на паузе строки выводятся, но экран не прокручивается; «Продолжить» — снова следует', () => {
+  const shown = [];
+  const view = new LogView((l) => shown.push(l));
+  assert.equal(view.follow(true), true);
+  assert.equal(view.pause(), true);
+  view.show('плата: 1');
+  assert.deepEqual(shown, ['плата: 1']);
+  assert.equal(view.follow(true), false);
+  assert.equal(view.pause(), false);
+  assert.equal(view.follow(true), true);
+  assert.equal(view.follow(false), false);
 });
