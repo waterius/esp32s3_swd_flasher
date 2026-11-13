@@ -1,7 +1,7 @@
 // Терминал и метки файлов без DOM (jaffa-flasher-page design §5, §7–§9).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { baudCommand, terminalControls, LogView, DEFAULT_UART } from '../../docs/lib/terminal.js';
+import { baudCommand, terminalControls, LogView, DEFAULT_UART, stamp } from '../../docs/lib/terminal.js';
 import { fileTags, parseFile } from '../../docs/lib/image.js';
 import { hexFile, fill } from './ihex_util.mjs';
 
@@ -63,4 +63,10 @@ test('соседние файлы без общих адресов не пере
     REGIONS,
   );
   assert.deepEqual(tags, [[], [], []]);
+});
+
+// spec: "web-flash/Терминал/Метка времени строки"
+test('метка времени строки — «ГГГГ-ММ-ДД чч-мм-сс.ммм: » по местным часам ПК', () => {
+  assert.equal(stamp(new Date(2026, 10, 3, 4, 5, 6, 7)), '2026-11-03 04-05-06.007: ');
+  assert.equal(stamp(new Date(2026, 11, 31, 23, 59, 59, 999)), '2026-12-31 23-59-59.999: ');
 });

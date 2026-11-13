@@ -5,7 +5,7 @@
 import { Flasher, hexDump } from './lib/flasher.js';
 import { serialAvailable, choosePort, WebSerialPort } from './lib/webserial.js';
 import { parseFile, hex32, fileTags } from './lib/image.js';
-import { SPEEDS, DATA_BITS, PARITY, STOP_BITS, DEFAULT_UART, baudCommand, terminalControls, LogView } from './lib/terminal.js';
+import { SPEEDS, DATA_BITS, PARITY, STOP_BITS, DEFAULT_UART, baudCommand, terminalControls, LogView, stamp } from './lib/terminal.js';
 
 // Спонсор — одна ссылка для шапки и подвала (jaffa-flasher-page design §2).
 const SPONSOR_URL = 'https://waterius.ru/?utm_source=jaffa_flasher&utm_medium=web&utm_campaign=jaffa_flasher';
@@ -190,7 +190,7 @@ function setStatus(text, bad = false) {
 function logLine(text, cls) {
   const stick = el.log.scrollTop + el.log.clientHeight >= el.log.scrollHeight - 4;
   const div = document.createElement('div');
-  div.textContent = text;
+  div.textContent = stamp(new Date()) + text;
   if (cls) div.className = cls;
   el.log.append(div);
   while (el.log.childElementCount > LOG_LINES) el.log.firstElementChild.remove();

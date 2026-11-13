@@ -26,6 +26,18 @@ export function terminalControls({ connected, busy, working }) {
 }
 
 /**
+ * Метка времени строки терминала по часам ПК (у платы часов нет, log-timestamps design §1):
+ * «2026-11-13 14-05-33.123: ». Местное время — то, что у человека на часах.
+ */
+export function stamp(date) {
+  const p = (n, w = 2) => String(n).padStart(w, '0');
+  return (
+    `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())} ` +
+    `${p(date.getHours())}-${p(date.getMinutes())}-${p(date.getSeconds())}.${p(date.getMilliseconds(), 3)}: `
+  );
+}
+
+/**
  * Лог на экране: пока выключен, строки не выводятся и не копятся (design §8).
  * show(line) вызывает вывод только при включённом логе.
  */
