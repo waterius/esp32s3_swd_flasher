@@ -75,7 +75,7 @@
 
 ## 6. Публикация (владелец)
 
-- [ ] 6.1 Репозиторий — публичный; GitHub Pages: «Deploy from a branch», `master`, `/docs`
+- [x] 6.1 Репозиторий — публичный; GitHub Pages: «Deploy from a branch», `master`, `/docs`
   (design §9). Страница открывается по `https://waterius.github.io/jaffa_flasher/`.
 
 ## 7. Проверка на плате (владелец)
