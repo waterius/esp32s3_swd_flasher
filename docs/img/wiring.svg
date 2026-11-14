@@ -1,37 +1,44 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 310" role="img" aria-labelledby="t">
-  <title id="t">Подключение Jaffa Flasher к плате с МК PY32</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 380" role="img" aria-labelledby="t">
+  <title id="t">Подключение Jaffa Flasher к отладочной плате PY32F002B</title>
   <style>
     text { font: 14px Roboto, Helvetica, Arial, sans-serif; fill: #232323; }
     .h { font-weight: 700; font-size: 15px; }
     .s { font-size: 12px; fill: #6b6b6b; }
+    .silk { font: 700 12px ui-monospace, Menlo, Consolas, monospace; fill: #ffffff; }
+    .chip { font-size: 12px; font-weight: 700; fill: #1655F5; }
     .w { stroke: #1655F5; stroke-width: 2.5; fill: none; }
     .g { stroke: #232323; stroke-width: 2.5; fill: none; }
     .p { stroke: #F53410; stroke-width: 2.5; fill: none; stroke-dasharray: 6 4; }
     .r { fill: #fff; stroke: #1655F5; stroke-width: 2; }
     .box { fill: #F3F6FE; stroke: #1655F5; stroke-width: 2; }
-    .board { fill: #F5F5F5; stroke: #232323; stroke-width: 2; }
+    .pcb { fill: #1d1d1d; }
+    .hole, .hole1 { fill: #9a9a9a; stroke: #d8d8d8; stroke-width: 2; }
+    .pad1 { fill: #9a9a9a; stroke: #d8d8d8; stroke-width: 2; }
+    .hot { fill: #1655F5; stroke: #ffffff; stroke-width: 2; }
+    .pin { fill: #2f8fe0; stroke: #1b5fa0; stroke-width: 1; }
   </style>
-  <rect class="box" x="10" y="20" width="170" height="260" rx="10"/>
-  <text class="h" x="95" y="46" text-anchor="middle">Jaffa Flasher</text>
-  <text class="s" x="95" y="64" text-anchor="middle">ESP32-S3 Super Mini</text>
-  <rect class="board" x="460" y="20" width="170" height="260" rx="10"/>
-  <text class="h" x="545" y="46" text-anchor="middle">Плата с PY32</text>
-  <text class="s" x="545" y="64" text-anchor="middle">питание 3,0–3,6 В</text>
+  <rect class="pcb" x="20" y="70" width="430" height="270" rx="14"/>
+  <rect class="pad1" x="53" y="85" width="14" height="14"/><rect class="pad1" x="53" y="311" width="14" height="14"/><circle class="hole1" cx="60" cy="92" r="7"/><circle class="hot" cx="94" cy="92" r="7"/><circle class="hole" cx="128" cy="92" r="7"/><circle class="hole" cx="162" cy="92" r="7"/><circle class="hole" cx="196" cy="92" r="7"/><circle class="hole" cx="230" cy="92" r="7"/><circle class="hole" cx="264" cy="92" r="7"/><circle class="hole" cx="298" cy="92" r="7"/><circle class="hole" cx="332" cy="92" r="7"/><circle class="hole" cx="366" cy="92" r="7"/><circle class="hole" cx="400" cy="92" r="7"/><circle class="hole1" cx="60" cy="318" r="7"/><circle class="hole" cx="94" cy="318" r="7"/><circle class="hole" cx="128" cy="318" r="7"/><circle class="hole" cx="162" cy="318" r="7"/><circle class="hole" cx="196" cy="318" r="7"/><circle class="hole" cx="230" cy="318" r="7"/><circle class="hole" cx="264" cy="318" r="7"/><circle class="hole" cx="298" cy="318" r="7"/><circle class="hole" cx="332" cy="318" r="7"/><circle class="hole" cx="366" cy="318" r="7"/><circle class="hole" cx="400" cy="318" r="7"/>
+  <rect x="8" y="172" width="64" height="66" rx="8" fill="#c9c9c9" stroke="#8a8a8a" stroke-width="2"/>
+  <text class="silk" x="82" y="210">USB-C</text>
+  <rect x="200" y="180" width="56" height="56" rx="4" fill="#2b2b2b" stroke="#555" stroke-width="2"/>
+  <text class="silk" x="228" y="254" text-anchor="middle">PY32F002B</text>
+  <text class="silk" x="404" y="122">J4</text>
+  <text class="silk" x="56" y="120">J2</text>
+  <text class="silk" x="56" y="300">J3</text>
+  <text class="s" x="235" y="368" text-anchor="middle">отладочная плата Embedfire PY32F002BF15U6TR, вид сверху</text>
 
-  <g>
-    <text x="30" y="99">GPIO1</text><text x="610" y="99" text-anchor="end">SWCLK</text>
-    <path class="w" d="M180 94 H460"/><rect class="r" x="290" y="88" width="40" height="12" rx="3"/>
-    <text x="30" y="135">GPIO2</text><text x="610" y="135" text-anchor="end">SWDIO</text>
-    <path class="w" d="M180 130 H460"/><rect class="r" x="290" y="124" width="40" height="12" rx="3"/>
-    <text x="30" y="171">GPIO4</text><text x="610" y="171" text-anchor="end">NRST</text>
-    <path class="w" d="M180 166 H460"/><rect class="r" x="290" y="160" width="40" height="12" rx="3"/>
-    <text x="30" y="207">GPIO5</text><text x="610" y="207" text-anchor="end">TX лога</text>
-    <path class="w" d="M460 202 H180"/><rect class="r" x="290" y="196" width="40" height="12" rx="3"/>
-    <text x="30" y="243">GND</text><text x="610" y="243" text-anchor="end">GND</text>
-    <path class="g" d="M180 238 H460"/>
-    <text x="30" y="271">3V3</text><text x="610" y="271" text-anchor="end">3V3</text>
-    <path class="p" d="M180 266 H460"/>
-  </g>
-  <text class="s" x="310" y="82" text-anchor="middle">резисторы 100–330 Ом</text>
-  <text class="s" x="320" y="300" text-anchor="middle">3V3 — только если у платы нет своего питания</text>
+  <path class="w" d="M94 92 V40 H620"/>
+  <text class="chip" x="104" y="34">PA6 · TX лога</text>
+  <text class="s" x="230" y="34">J2, 2-й пин от GND</text>
+  <rect class="r" x="560" y="34" width="34" height="12" rx="3"/>
+  <text x="640" y="45">GPIO5</text>
+
+  <rect class="pin" x="404" y="129" width="22" height="22" rx="3"/><circle cx="415" cy="140" r="3.5" fill="#fff"/><text class="silk" x="394" y="145" text-anchor="end">3V3</text><path class="p" d="M426 140 H620"/><text x="640" y="145">3V3</text><rect class="pin" x="404" y="164" width="22" height="22" rx="3"/><circle cx="415" cy="175" r="3.5" fill="#fff"/><text class="silk" x="394" y="180" text-anchor="end">DIO</text><path class="w" d="M426 175 H620"/><text class="chip" x="458" y="169">PB6 · SWDIO</text><rect class="r" x="560" y="169" width="34" height="12" rx="3"/><text x="640" y="180">GPIO2</text><rect class="pin" x="404" y="199" width="22" height="22" rx="3"/><circle cx="415" cy="210" r="3.5" fill="#fff"/><text class="silk" x="394" y="215" text-anchor="end">GND</text><path class="g" d="M426 210 H620"/><text x="640" y="215">GND</text><rect class="pin" x="404" y="234" width="22" height="22" rx="3"/><circle cx="415" cy="245" r="3.5" fill="#fff"/><text class="silk" x="394" y="250" text-anchor="end">CLK</text><path class="w" d="M426 245 H620"/><text class="chip" x="458" y="239">PA2 · SWCLK</text><rect class="r" x="560" y="239" width="34" height="12" rx="3"/><text x="640" y="250">GPIO1</text><rect class="pin" x="404" y="269" width="22" height="22" rx="3"/><circle cx="415" cy="280" r="3.5" fill="#fff"/><text class="silk" x="394" y="285" text-anchor="end">RST</text><path class="w" d="M426 280 H620"/><text class="chip" x="458" y="274">PC0 · NRST</text><rect class="r" x="560" y="274" width="34" height="12" rx="3"/><text x="640" y="285">GPIO4</text>
+
+  <rect class="box" x="620" y="10" width="150" height="300" rx="10" fill-opacity="0"/>
+  <text class="h" x="695" y="330" text-anchor="middle">Jaffa Flasher</text>
+  <text class="s" x="695" y="348" text-anchor="middle">ESP32-S3 Super Mini</text>
+  <text class="s" x="520" y="24" text-anchor="middle">резисторы 100–330 Ом</text>
+  <text class="s" x="458" y="132">если у платы нет питания</text>
 </svg>
